@@ -4,7 +4,7 @@ const engine=await fs.readFile('sku/engine.js','utf8'),ctx=vm.createContext({});
 const catalogs=vm.runInContext('({TIP,CAT,SUB})',ctx);
 await fs.writeFile(dir+'/catalogos.json',JSON.stringify(catalogs));
 // Los datos de arranque son locales y no se publican en el repositorio.
-try{const initial=JSON.parse(await fs.readFile(dir+'/initial.json','utf8'));if(!initial.state||!initial.master)throw Error('Formato inválido.');}catch{throw Error('Inicializa los archivos locales con python tools/inicializar.py antes de compilar la interfaz.');}
+// La interfaz se compila sin bases, contraseñas ni archivos iniciales locales.
 let ui=await fs.readFile('sku/ui.js','utf8');
 const begin=ui.indexOf("const $=id=>"),end=ui.indexOf('function message(e)');
 ui=ui.slice(0,begin)+`const $=id=>document.getElementById(id);
@@ -28,7 +28,7 @@ ui=ui.replace("row=++last;xml=addRow(xml,row);}","row=++last;xml=addRow(xml,row)
 ui+=`\n$('backup').hidden=!canDelete;$('backup').onclick=async()=>{try{const r=await fetch('/api/compras/respaldo');if(!r.ok)throw Error((await r.json()).error);download(await r.blob(),'RESPALDO COMPRAS '+date()+'.json');}catch(err){message(err);}};\n`;
 let template=await fs.readFile('sku/template.html','utf8');
 template=template.replace('<title>Maestro de compras · SKU</title>','<title>GENERADOR CODIGOS DE COMPRA GMP</title>');
-template=template.replace('<h1>Maestro de compras · Generador de SKU</h1>','<header style="display:flex;align-items:center;gap:20px;flex-wrap:wrap"><img src="/logo.png" alt="Grupo Mi Pan" style="width:105px;height:105px;object-fit:contain;background:white"><div><h1>GENERADOR CODIGOS DE COMPRA GMP</h1><p id="perfil"></p><button id="salir" class="secondary">Cerrar sesión</button></div></header>');
+template=template.replace('<h1>Maestro de compras · Generador de SKU</h1>','<header style="display:flex;align-items:center;gap:20px;flex-wrap:wrap"><img src="/logo.svg" alt="ERP JM Lite" style="width:105px;height:105px;object-fit:contain;background:white"><div><h1>GENERADOR CODIGOS DE COMPRA GMP</h1><p id="perfil"></p><button id="salir" class="secondary">Cerrar sesión</button></div></header>');
 const usersPanel=`<details id="usuariosPanel" hidden><summary>Administrar usuarios y perfiles</summary><p>Super administrador: acceso completo. Captura: altas, edición y generación de SKU. Visualizador: consulta y descarga. Desactivar un usuario bloquea su acceso.</p><form id="usuarioForm"><div class="grid"><label>Correo<input id="usuarioCorreo" type="email" required maxlength="160" autocomplete="off"></label><label>Nombre<input id="usuarioNombre" required maxlength="100"></label><label>Perfil<select id="usuarioRol"><option value="superadmin">SUPER ADMINISTRADOR</option><option value="captura" selected>CAPTURA Y GENERACIÓN DE SKU</option><option value="visualizador">VISUALIZADOR</option></select></label><label>Contraseña nueva<input id="usuarioClave" type="password" minlength="4" maxlength="200" autocomplete="new-password" placeholder="Mínimo 4 caracteres"></label><label class="gmp-check-label"><input id="usuarioMostrarClave" type="checkbox" aria-controls="usuarioClave"><span>Mostrar contraseña</span></label><label><span>Usuario activo</span><input id="usuarioActivo" type="checkbox" checked></label></div><div class="actions"><button>Guardar usuario</button><button id="usuarioCancelar" type="button" class="secondary">Nuevo / cancelar edición</button><button id="usuariosActualizar" type="button" class="secondary">Actualizar usuarios</button></div></form><output id="usuarioMensaje"></output><div class="scroll"><table><thead><tr><th>Correo</th><th>Nombre</th><th>Perfil</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="usuariosTabla"></tbody></table></div></details>`;
 template=template.replace('<details><summary>Crear un artículo nuevo</summary>',usersPanel+'<details><summary>Crear un artículo nuevo</summary>');
 template=template.replace('El catálogo proporcionado está precargado.','El catálogo del servidor está compartido entre todos los equipos.');
@@ -59,7 +59,7 @@ template=template.replaceAll('ERP JM Lite','ERP JM Lite');
 await fs.writeFile(dir+'/public/index.html',template);
 let login=await fs.readFile(dir+'/public/login.html','utf8');
 login=login.replace(/<style id="gmp-login-theme">[\s\S]*?<\/style>/g,'').replace('</style>','</style><style id="gmp-login-theme">'+await fs.readFile('sku/login-theme.css','utf8')+'</style>').replace('Acceso a los catálogos de compras y ventas','Catálogos, requisiciones y reportes en un solo lugar');
-login=login.replaceAll('ERP JM Lite','ERP JM Lite').replace(/<p id="appLoginInfo">[\s\S]*?<\/p>/g,'').replace('</h1>','</h1><p id="appLoginInfo">Versión 0.1.0-dev<br>aplicación soportada y gestionada por Ing. Mario González, sistemas@grupomipan.com 2026</p>');
+login=login.replaceAll('ERP JM Lite','ERP JM Lite').replace(/<p id="appLoginInfo">[\s\S]*?<\/p>/g,'').replace('</h1>','</h1><p id="appLoginInfo">Versión 0.1.0-dev<br>aplicación soportada y gestionada por Ing. Mario González, mario.gonzalez@jad-ayt.com 2026</p>');
 await fs.writeFile(dir+'/public/login.html',login);
 await fs.writeFile(dir+'/public/app.js',await fs.readFile('sku/date-format.js','utf8')+'\n'+engine+'\n'+await fs.readFile('sku/xlsx-browser.js','utf8')+'\n'+ui+'\n'+await fs.readFile('sku/roles-ui.js','utf8')+'\n'+await fs.readFile('sku/sales-ui.js','utf8')+'\n'+await fs.readFile('sku/requisition-ui.js','utf8')+'\n'+await fs.readFile('sku/profile-modules-ui.js','utf8')+'\n'+await fs.readFile('sku/report-ui.js','utf8')+'\n'+await fs.readFile('sku/report-pagination-ui.js','utf8')+'\n'+await fs.readFile('sku/report-export-ui.js','utf8')+'\n'+await fs.readFile('sku/workflow-ui.js','utf8')+'\n'+await fs.readFile('sku/erp-ui.js','utf8')+'\n'+await fs.readFile('sku/purchase-master-ui.js','utf8')+'\n'+await fs.readFile('sku/backup-ui.js','utf8')+'\n'+await fs.readFile('sku/images-ui.js','utf8')+'\n'+await fs.readFile('sku/admin-approvals-ui.js','utf8')+'\n'+await fs.readFile('sku/areas-ui.js','utf8')+'\n'+await fs.readFile('sku/navigation-ui.js','utf8')+'\n'+await fs.readFile('sku/commercial-entry-ui.js','utf8')+'\n'+await fs.readFile('sku/purchase-links-ui.js','utf8'));
 console.log('App servidor generada.');
@@ -73,3 +73,11 @@ await fs.copyFile('sku/purchase-panel.html',dir+'/public/purchase.html');await f
 for(const name of ['index.html','login.html','app.js','commercial.html','commercial.js']){let value=await fs.readFile(dir+'/public/'+name,'utf8');value=value.replaceAll('ERP JM Lite','ERP JM Lite').replaceAll('ERP JM Lite','ERP JM Lite');await fs.writeFile(dir+'/public/'+name,value);}
 
 await fs.copyFile('sku/inventory-panel.html',dir+'/public/inventory.html');await fs.writeFile(dir+'/public/inventory.js',await fs.readFile('sku/date-format.js','utf8')+'\n'+await fs.readFile('sku/inventory-ui.js','utf8')+'\n'+await fs.readFile('sku/inventory-operations-ui.js','utf8')+'\n'+await fs.readFile('sku/inventory-documents-ui.js','utf8'));
+const enterprise=await fs.readFile('sku/enterprise.css','utf8');
+for(const name of ['index.html','commercial.html','purchase.html','inventory.html']){
+ let html=await fs.readFile(dir+'/public/'+name,'utf8');
+ html=html.replace(/<style id="jm-enterprise">[\s\S]*?<\/style>/g,'');
+ const style='<style id="jm-enterprise">'+enterprise+'</style>';
+ html=html.includes('</head>')?html.replace('</head>',style+'</head>'):html.replace('</style>','</style>'+style);
+ await fs.writeFile(dir+'/public/'+name,html);
+}

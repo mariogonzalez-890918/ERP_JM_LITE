@@ -1,4 +1,25 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ERP JM Lite · Compras</title><link rel="stylesheet" href="/purchase.css"></head><body>
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ERP JM Lite · Compras</title><link rel="stylesheet" href="/purchase.css"><style id="jm-enterprise">/* Identidad comercial JM: navegación azul y documentos de trabajo compactos. */
+:root{--green:#0067a5;--accent:#0067a5;--ink:#1b3046;--muted:#52677b;--line:#ced9e3;--canvas:#edf2f6}
+body{font-family:'Segoe UI',Arial,sans-serif;background:var(--canvas);color:var(--ink)}
+#gmpSidebar{background:#123454;border-right:1px solid #244e70;border-radius:0;padding-top:20px}
+#gmpSidebar .gmp-brand img{border-radius:5px;background:transparent;padding:0}
+#gmpSidebar button{border-radius:3px}
+#gmpNav button[aria-current=page],#gmpNav button.gmp-parent-active{background:#0067a5;color:#fff}
+#gmpTopbar{background:#fff;border-bottom:3px solid #0067a5;box-shadow:0 2px 6px #16345012}
+.gmp-hero{background:#e1edf6!important;border:1px solid #c6d9e7;border-left:5px solid #0067a5;border-radius:4px;padding:24px!important;min-height:160px!important}
+.gmp-hero h2{color:#123454!important;font-size:27px!important}.gmp-hero p{color:#37566e!important}.gmp-hero-art{display:none}
+.gmp-app-card,.gmp-metric,.gmp-flat-panel,.gmp-help,.gmp-catalog-toolbar,.rp-kpi,.card,dialog{border-radius:4px!important;box-shadow:none!important}
+.gmp-app-card{border-top:3px solid #0067a5!important;min-height:165px!important}.gmp-app-card:hover{border-color:#0067a5!important;transform:none!important}
+.gmp-app-card h3,.gmp-metric strong,.rp-kpi strong{color:#123454!important}.gmp-app-card>.gmp-icon,.gmp-metric-icon{color:#0067a5!important;background:#e5f0f8!important}
+#gmpMain button,button{border-radius:3px}#gmpMain input,#gmpMain select,#gmpMain textarea,input,select,textarea{border-radius:3px;border-color:#b9cad8}
+#gmpMain input:focus,#gmpMain select:focus,input:focus,select:focus{outline:2px solid #0879bc;outline-offset:1px}
+#gmpMain .gmp-segments{border-radius:3px;background:#dfe8f0}#gmpMain .gmp-segments button[aria-selected=true]{color:#004b7a;border-radius:2px;border-bottom:2px solid #0067a5;box-shadow:none}
+table th,#gmpMain th{background:#e4edf5!important;color:#244661!important;font-weight:600;border-bottom:2px solid #b6ccdf;padding:10px 12px}
+table td,#gmpMain td{padding:9px 12px;border-bottom:1px solid #dce5ec}tbody tr:nth-child(even){background:#f5f8fb}tbody tr:hover{background:#e8f3fb}
+input[type=checkbox]{accent-color:#0067a5!important}.top{background:#123454!important;color:#fff}aside{background:#fff}aside button.active{border-left:3px solid #0067a5;background:#e6f0f8;color:#004b7a}
+.tabs button.active{color:#0067a5;border-color:#0067a5}.cart,.context{border-radius:3px}.breadcrumb{color:#52677b}
+@media print{body{background:white}.gmp-hero{border:0}}
+</style></head><body>
 <header class="top"><button id="menu" aria-label="Abrir menú">☰</button><a href="/">ERP JM Lite</a><strong>Compras</strong><label>Razón social<select id="company"></select></label><label>Sucursal<select id="branch"></select></label><span id="user"></span></header>
 <aside id="nav"><a href="/">← Todos los módulos</a><button data-tab="pedidos">▤ Cotizaciones y pedidos</button><button data-tab="proveedores">♙ Proveedores</button><button data-tab="requisiciones">▣ Requisiciones vinculadas</button><button data-tab="plantillas">▤ Plantillas por proveedor</button><button data-tab="reportes">▥ Reportes de compras</button><button data-tab="series">⚙ Series y folios</button><button data-tab="accesos" data-admin>♙ Accesos por usuario</button><button data-tab="smtp" data-admin>✉ Correo al proveedor</button><button data-tab="respaldo" data-admin>▣ Respaldo de Compras</button></aside>
 <main><p id="breadcrumb" class="breadcrumb">Compras / Cotizaciones y pedidos</p><p id="purchaseBusy" class="note" role="status" hidden>Procesando solicitud…</p><div id="error" role="alert"></div><div id="notice" role="status"></div>

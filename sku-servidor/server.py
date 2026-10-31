@@ -11,7 +11,7 @@ from reporte_export import report_xlsx,report_pdf,select_detail
 from autorizaciones import WorkflowStore
 from compras import PurchaseImporter,export_products
 from respaldos import BackupStore
-from app_info import TITLE,VERSION,SUPPORT_LINE
+from app_info import TITLE,VERSION,SUPPORT_LINE,ADMIN_EMAIL,ADMIN_NAME
 from imagenes import ImageStore
 from aprobaciones_admin import AdminApprovals
 from comercial_routes import CommercialAPI
@@ -20,7 +20,6 @@ from inventarios_routes import InventoryAPI
 APP_DIR=pathlib.Path(sys.executable).resolve().parent if getattr(sys,'frozen',False) else ROOT
 ALPHABET='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 MAX_BODY=25*1024*1024
-ADMIN_EMAIL='sistemas@grupomipan.com'
 ROLES={'superadmin':'SUPERADMINISTRADOR','auxti':'AUXTI','visualizador':'VISUALIZADOR','ventas':'VENTAS','compras':'COMPRAS','alta':'ALTA DE PRODUCTOS','gerente':'GERENTE','almacenista':'ALMACENISTA','requisicion':'REQUISICIÓN','ventaspasteleria':'VENTASPASTELERIA','ventasins':'VentasIns','expendios':'Expendios'}
 def read_scope(actor,scope):
  require_module(actor,scope)
@@ -119,7 +118,7 @@ class Store:
        if password!=getpass.getpass('Confirma la contraseña: '):print('Las contraseñas no coinciden.',flush=True);continue
        try:salt,digest=new_password(password);admin={'salt':salt,'password_hash':digest}
        except ValueError as error:print(str(error),flush=True)
-    db.execute('INSERT INTO users VALUES(?,?,?,?,?,1)',(ADMIN_EMAIL,'Sistemas GMP','superadmin',admin['salt'],admin['password_hash']))
+    db.execute('INSERT INTO users VALUES(?,?,?,?,?,1)',(ADMIN_EMAIL,ADMIN_NAME,'superadmin',admin['salt'],admin['password_hash']))
  @contextlib.contextmanager
  def connect(self):
   db=sqlite3.connect(self.path,timeout=15)
@@ -242,7 +241,7 @@ def create_handler(store):
    self.end_headers();self.wfile.write(body)
   def do_GET(self):
    path=self.path.split('?')[0]
-   if path=='/logo.png':return self.reply(200,(ROOT/'public/logo.png').read_bytes(),'image/png')
+   if path=='/logo.svg':return self.reply(200,(ROOT/'public/logo.svg').read_bytes(),'image/svg+xml')
    actor=self.auth()
    if path in ('/','/index.html'):
     name='index.html' if actor else 'login.html';return self.reply(200,(ROOT/'public'/name).read_bytes(),'text/html; charset=utf-8')
@@ -457,15 +456,34 @@ def create_handler(store):
  Handler.procurement=procurement
  return Handler
 def main():
- parser=argparse.ArgumentParser();parser.add_argument('--host',default='0.0.0.0');parser.add_argument('--port',type=int);parser.add_argument('--data-dir',default=str(APP_DIR/'data'));args=parser.parse_args()
- configpath=APP_DIR/'config.json'
- if not configpath.exists():configpath.write_text(json.dumps({'port':8080},indent=2),encoding='utf8')
- config=json.loads(configpath.read_text(encoding='utf8'))
+ parser=argparse.ArgumentParser();parser.add_argument('--host');parser.add_argument('--port',type=int);parser.add_argument('--data-dir');parser.add_argument('--config',type=pathlib.Path,default=APP_DIR/'config.json');parser.add_argument('--initialize',action='store_true',help='Crear la base vacía y el administrador sin arrancar HTTP');parser.add_argument('--admin-seed',type=pathlib.Path,help='Archivo privado con salt/password_hash, solo para inicialización desatendida');args=parser.parse_args()
+ admin=None
+ if args.admin_seed:
+  if not args.initialize:parser.error('--admin-seed solo se permite con --initialize.')
+  admin=json.loads(args.admin_seed.read_text(encoding='utf-8-sig'))
+  if not isinstance(admin,dict) or not re.fullmatch('[0-9a-f]{32}',str(admin.get('salt',''))) or not re.fullmatch('[0-9a-f]{64}',str(admin.get('password_hash',''))):parser.error('Semilla de administrador inválida.')
+ configpath=args.config.resolve()
+ if not configpath.exists():configpath.write_text(json.dumps({'host':'0.0.0.0','port':8080},indent=2),encoding='utf8')
+ config=json.loads(configpath.read_text(encoding='utf-8-sig'))
  if 'password' in config or 'user' in config:
   config={k:v for k,v in config.items() if k not in ('password','user')};configpath.write_text(json.dumps(config,indent=2),encoding='utf8')
- port=args.port or config.get('port',8080);store=Store(args.data_dir)
+ port=args.port if args.port is not None else config.get('port',8080)
+ if type(port) is not int or not 0<=port<=65535:parser.error('Puerto inválido: usa 1–65535, o 0 para asignación automática.')
+ host=args.host or config.get('host','0.0.0.0')
+ data_dir=pathlib.Path(args.data_dir or config.get('data_dir','data'))
+ if not data_dir.is_absolute():data_dir=configpath.parent/data_dir
+ store=Store(data_dir,initial_admin=admin)
+ if args.initialize:
+  print('Instalación inicializada. Administrador: '+ADMIN_EMAIL,flush=True);return
+ if config.get('log_dir'):
+  import shutil
+  log_dir=pathlib.Path(config['log_dir'])
+  if not log_dir.is_absolute():log_dir=configpath.parent/log_dir
+  log_dir.mkdir(parents=True,exist_ok=True);log_path=log_dir/'server.log'
+  if log_path.exists():shutil.copy2(log_path,log_dir/'server.log.previous')
+  sys.stdout=sys.stderr=log_path.open('w',encoding='utf8',buffering=1)
  handler=create_handler(store);handler.commercial.sync.start()
- server=http.server.ThreadingHTTPServer((args.host,port),handler);server.daemon_threads=True
+ server=http.server.ThreadingHTTPServer((host,port),handler);server.daemon_threads=True;port=server.server_port
  print(f'\n{TITLE} v{VERSION}\n{SUPPORT_LINE}\nPuerto: {port}\nLocal: http://127.0.0.1:{port}\nRed/VPN: http://IP-DEL-SERVIDOR:{port}\nSuperadministrador: {ADMIN_EMAIL}\nInicia sesión con la contraseña configurada.\nDatos: {store.path}\nCtrl+C para detener.\n',flush=True)
  try:server.serve_forever()
  except KeyboardInterrupt:pass

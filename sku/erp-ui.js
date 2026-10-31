@@ -88,7 +88,7 @@ async function gmpRenderRoute(){
  const generation=++gmpNavGeneration;let [route,sub]=location.hash.slice(1).split('/');if(!gmpAllowed[route]){route='inicio';history.replaceState(null,'','#inicio');}gmpActive=route;
  for(const [name,view] of Object.entries(gmpViews))view.hidden=name!==route;
  $('sinModulos').hidden=true;for(const [name,button] of Object.entries(gmpButtons)){if(name===route)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');}
- $('gmpPageTitle').textContent=gmpNames[route];$('gmpBreadcrumb').textContent='GMP / '+(['usuarios','perfiles','respaldos'].includes(route)?'Administración':route==='inicio'?'Mi espacio':'Operación');gmpCloseMenu();window.scrollTo({top:0,behavior:'instant'});
+ $('gmpPageTitle').textContent=gmpNames[route];$('gmpBreadcrumb').textContent='ERP JM Lite / '+(['usuarios','perfiles','respaldos'].includes(route)?'Administración':route==='inicio'?'Mi espacio':'Operación');gmpCloseMenu();window.scrollTo({top:0,behavior:'instant'});
  if(sub&&gmpSegments[route])gmpSelect(route,sub);
  try{
   if(route==='ventas')await salesInit();

@@ -7,7 +7,8 @@ from comercial_print import report_xlsx
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate,Paragraph,Spacer,Table,LongTable,TableStyle,KeepTogether,Image
+from reportlab.platypus import SimpleDocTemplate,Paragraph,Spacer,Table,LongTable,TableStyle,KeepTogether
+from reportlab.graphics.shapes import Drawing,Rect,String
 
 def order_pdf(doc,movement=None):
  out=io.BytesIO();small=ParagraphStyle('small',fontName='Helvetica',fontSize=8,leading=11,spaceAfter=4,splitLongWords=True);normal=ParagraphStyle('normal',parent=small,fontSize=10,leading=14);title=ParagraphStyle('title',parent=normal,fontSize=19,leading=23,spaceAfter=12);label=ParagraphStyle('label',parent=normal,fontName='Helvetica-Bold');white=ParagraphStyle('white',parent=small,textColor=colors.white,fontName='Helvetica-Bold')
@@ -15,9 +16,7 @@ def order_pdf(doc,movement=None):
  def footer(canvas,document):
   canvas.saveState();canvas.setFont('Helvetica',8);canvas.setFillColor(colors.HexColor('#64716D'));canvas.drawString(34,22,TITLE+' · v'+VERSION);canvas.drawRightString(A4[0]-34,22,'Página '+str(document.page));canvas.restoreState()
  company=doc['emisor'];vendor=doc['proveedor'];folio=movement['folio'] if movement else doc['folio'];kind=('Registro de compra' if movement['tipo']=='COMPRA' else 'Recepción de compra') if movement else 'Solicitud de cotización' if doc['estado'] in ('BORRADOR','ENVIADO') else 'Pedido de compra';story=[]
- import requisiciones
- logo=requisiciones.ROOT/'public/logo.png'
- if logo.exists():story.append(Image(str(logo),width=48,height=48,hAlign='RIGHT'))
+ logo=Drawing(48,48);logo.hAlign='RIGHT';logo.add(Rect(0,0,48,48,fillColor=colors.HexColor('#123454'),strokeColor=None));logo.add(String(7,17,'JM',fontName='Helvetica-Bold',fontSize=23,fillColor=colors.white));story.append(logo)
  story.extend([p(company['nombre'],label),p(company.get('rfc','')+'\n'+company.get('domicilio',''),small),Spacer(1,12),p(kind+' #'+folio,title)])
  info=Table([[p('Proveedor',label),p('Envío / sucursal',label)],[p(vendor['nombre']+'\n'+vendor.get('rfc','')+'\n'+vendor.get('domicilio','')+'\n'+vendor.get('correo','')+'\n'+vendor.get('telefono',''),normal),p(doc['sucursal']+'\nRazón social: '+company['nombre'],normal)]],colWidths=[265,262]);info.setStyle(TableStyle([('VALIGN',(0,0),(-1,-1),'TOP'),('LEFTPADDING',(0,0),(-1,-1),0),('RIGHTPADDING',(0,0),(-1,-1),12)]));story.extend([info,Spacer(1,10),p('Fecha del pedido: '+display_date(doc['fechaPedido'])+' · Entrega: '+display_date(doc.get('fechaEntrega',''))+'\nReferencia del proveedor: '+doc.get('referenciaProveedor','')+'\nEstado: '+doc['estado'],normal)])
  if movement and movement.get('cancelacion'):story.extend([p('RECEPCIÓN CANCELADA / DEVUELTA',label),p(display_date(movement['cancelacion']['fecha'])+' · '+movement['cancelacion']['motivo'],normal)])

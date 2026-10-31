@@ -47,7 +47,7 @@ class CommercialTests(fixtures.ModuleBackupTests):
   self.cm('pedidos/cancelar',{'id':edited['id'],'revision':edited['revision'],'motivo':'PRUEBA'});self.assertEqual(self.cm('documentos')['totales']['total'],'0.00')
  def test_pos_checkout_ignores_price_and_ticket_has_no_fiscal_data(self):
   self.load_master();doc,data,box=self.sale();self.assertEqual(doc['total'],'116.00');self.assertEqual(doc['pago']['cambio'],'4.00');self.assertEqual(self.cm('cobrar',data,channel='expendios')['documento']['id'],doc['id'])
-  status,body,_=self.call('/api/comercial/imprimir?canal=expendios&id='+doc['id']);self.assertEqual(status,200);self.assertIn(b'EJIDOS',body);self.assertIn(b'/logo.png',body);self.assertNotIn(b'EMPRESA DEMO',body);self.assertNotIn(b'RFC-PRUEBA',body);self.assertNotIn(b'DOMICILIO FISCAL',body)
+  status,body,_=self.call('/api/comercial/imprimir?canal=expendios&id='+doc['id']);self.assertEqual(status,200);self.assertIn(b'EJIDOS',body);self.assertIn(b'/logo.svg',body);self.assertNotIn(b'EMPRESA DEMO',body);self.assertNotIn(b'RFC-PRUEBA',body);self.assertNotIn(b'DOMICILIO FISCAL',body)
  def test_pos_cancel_only_aux_and_admin_cash_refund_separate(self):
   self.load_master();doc,data,box=self.sale();pending=self.cm('cancelaciones',{'id':doc['id'],'revision':doc['revision'],'motivo':'DEVOLUCION'},channel='expendios')['solicitud'];manager=self.new_user('gerente',[self.company],boxes=[box])
   decision={'canal':'expendios','id':pending['id'],'revision':1,'aprobar':True};self.assertEqual(self.call('/api/comercial/cancelaciones/resolver',decision,manager)[0],403);self.cm('cancelaciones/resolver',decision,channel='expendios')

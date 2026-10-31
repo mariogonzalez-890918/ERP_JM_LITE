@@ -56,6 +56,7 @@ def read_rows(data):
  return result
 
 def import_customers(cm,data,actor,channel):
+ if actor['role'] not in ('superadmin','gerente'):raise PermissionError('Solo Gerencia y Sistemas cargan clientes.')
  cm.action(actor,channel,'clientes');company=data.get('empresa');cm.company(company,actor,True);rows=read_rows(data)
  for ch in set(c for r in rows for c in r['canales']):cm.action(actor,ch,'clientes')
  update=data.get('actualizar') is True

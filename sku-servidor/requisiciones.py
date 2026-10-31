@@ -5,7 +5,7 @@ import base64,collections,csv,datetime,decimal,hashlib,html,io,json,pathlib,re,s
 ROOT=pathlib.Path(__file__).resolve().parent
 MX=datetime.timezone(datetime.timedelta(hours=-6))
 AREAS=['Produccion','Produccion Barra congelada','Produccion Batidos Galletas','Produccion Bizcochero','Produccion Donas','Produccion Franceseros','Produccion Gelatinas','Produccion Limpieza','Produccion Pasteleros','Produccion Punto de Venta San Pablo','Produccion Reposteria','Produccion Rosticeria','Salida Cuautitlan','Salida Ejidos','Almacen rosticeria','Produccion Pan Molido','Produccion Pesadas','Produccion Condimix','Produccion Empacado','Produccion Empacado Armado','Produccion Empacado Congelado','Expendio']
-BRANCHES={'EJIDOS':'REQ-EJI','SAN PABLO':'REQ-SP','CUAUTITLAN':'REQ-CUA','EJE 8':'REQ-E8'}
+from sucursales import BRANCHES
 MANAGERS={'superadmin','auxti','compras','alta'}
 SCOPED_ROLES={'gerente','almacenista','requisicion'}
 READ_ONLY_ROLES={'visualizador','almacenista'}

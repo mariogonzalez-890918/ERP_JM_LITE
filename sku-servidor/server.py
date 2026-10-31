@@ -1,5 +1,5 @@
 """Servidor SKU JAD: Python estándar, SQLite y control de concurrencia."""
-import argparse,base64,contextlib,datetime,hashlib,hmac,http.server,http.cookies,json,pathlib,re,secrets,sqlite3,time,unicodedata,zipfile,io,sys
+import argparse,base64,contextlib,datetime,hashlib,hmac,http.server,http.cookies,json,pathlib,re,secrets,sqlite3,time,unicodedata,zipfile,io,sys,threading
 ROOT=pathlib.Path(__file__).resolve().parent
 sys.path.insert(0,str(ROOT))
 from ventas import SalesStore,export_master
@@ -86,7 +86,10 @@ def protect(old,new):
  b['reservados']=sorted(reserved)
 class Store:
  def __init__(self,directory,initial_admin=None):
+  self._transactions=threading.local()
   self.directory=pathlib.Path(directory);self.directory.mkdir(parents=True,exist_ok=True);self.path=self.directory/'sku.sqlite3';self.catalogs=json.loads((ROOT/'catalogos.json').read_text(encoding='utf8'))
+  from sucursales import load_branches
+  load_branches(self)
   with self.connect() as db:
    db.execute('PRAGMA journal_mode=WAL');db.execute('CREATE TABLE IF NOT EXISTS catalog (id INTEGER PRIMARY KEY CHECK(id=1),revision INTEGER NOT NULL,payload TEXT NOT NULL)');db.execute('CREATE TABLE IF NOT EXISTS history (revision INTEGER PRIMARY KEY,created TEXT NOT NULL,payload TEXT NOT NULL)')
    if not db.execute('SELECT 1 FROM catalog').fetchone():
@@ -121,10 +124,27 @@ class Store:
     db.execute('INSERT INTO users VALUES(?,?,?,?,?,1)',(ADMIN_EMAIL,ADMIN_NAME,'superadmin',admin['salt'],admin['password_hash']))
  @contextlib.contextmanager
  def connect(self):
+  current=getattr(self._transactions,'connection',None)
+  if current is not None:
+   yield current;return
   db=sqlite3.connect(self.path,timeout=15)
   try:
    with db:yield db
   finally:db.close()
+ @contextlib.contextmanager
+ def atomic(self,rollback=False):
+  if getattr(self._transactions,'connection',None) is not None:raise RuntimeError('Transacción compuesta ya iniciada.')
+  class NestedConnection:
+   def __init__(self,db):self.db=db
+   def execute(self,sql,*args):
+    return self.db.execute('SELECT 1') if sql.strip().upper().startswith('BEGIN') else self.db.execute(sql,*args)
+   def __getattr__(self,name):return getattr(self.db,name)
+  with self.connect() as db:
+   db.execute('BEGIN IMMEDIATE');self._transactions.connection=NestedConnection(db)
+   try:
+    yield db
+    if rollback:db.rollback()
+   finally:self._transactions.connection=None
  def get(self):
   with self.connect() as db:rev,payload=db.execute('SELECT revision,payload FROM catalog WHERE id=1').fetchone()
   return {**json.loads(payload),'revision':rev}

@@ -1,0 +1,8 @@
+const defaults={mode:'system',color:'azul'};let preference;
+try{preference={...defaults,...JSON.parse(localStorage.getItem('erp-jm-theme')||'{}')};}catch{preference={...defaults};}
+if(!['system','light','dark'].includes(preference.mode))preference.mode='system';if(!['azul','rosa','verde'].includes(preference.color))preference.color='azul';
+const media=matchMedia('(prefers-color-scheme: dark)');function apply(){document.documentElement.dataset.theme=preference.mode==='system'?(media.matches?'dark':'light'):preference.mode;document.documentElement.dataset.color=preference.color;try{localStorage.setItem('erp-jm-theme',JSON.stringify(preference));}catch{}}
+apply();media.addEventListener?.('change',apply);
+const tools=document.createElement('div');tools.className='jm-theme-tools';tools.setAttribute('aria-label','Personalización de apariencia');
+for(const [key,title,choices] of [['mode','Modo',[['system','Sistema'],['light','Claro'],['dark','Oscuro']]],['color','Color',[['azul','Azul'],['rosa','Rosa'],['verde','Verde']]]]){const label=document.createElement('label');label.textContent=title;const select=document.createElement('select');select.setAttribute('aria-label',title+' de apariencia');for(const [value,name]of choices){const o=document.createElement('option');o.value=value;o.textContent=name;select.append(o);}select.value=preference[key];select.onchange=()=>{preference[key]=select.value;apply();};label.append(select);tools.append(label);}
+const header=document.querySelector('.jm-header,#jmTopbar,.top');if(header)header.append(tools);else{tools.classList.add('jm-theme-floating');document.body.append(tools);}

@@ -4,7 +4,7 @@ from permissions import require_module
 import base64,collections,csv,datetime,decimal,hashlib,html,io,json,pathlib,re,sqlite3,unicodedata,uuid,zipfile,xml.etree.ElementTree as ET
 ROOT=pathlib.Path(__file__).resolve().parent
 MX=datetime.timezone(datetime.timedelta(hours=-6))
-AREAS=['Produccion','Produccion Barra congelada','Produccion Batidos Galletas','Produccion Bizcochero','Produccion Donas','Produccion Franceseros','Produccion Gelatinas','Produccion Limpieza','Produccion Pasteleros','Produccion Punto de Venta San Pablo','Produccion Reposteria','Produccion Rosticeria','Salida Cuautitlan','Salida Ejidos','Almacen rosticeria','Produccion Pan Molido','Produccion Pesadas','Produccion Condimix','Produccion Empacado','Produccion Empacado Armado','Produccion Empacado Congelado','Expendio']
+AREAS=['Administración','Compras','Ventas','Almacén','Calidad','Operaciones','Sistemas']
 from sucursales import BRANCHES
 MANAGERS={'superadmin','auxti','compras','alta'}
 SCOPED_ROLES={'gerente','almacenista','requisicion'}

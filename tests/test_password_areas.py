@@ -7,8 +7,8 @@ class PasswordAreaTests(unittest.TestCase):
   self.case=fixture.ModuleBackupTests();self.case.setUp();self.case.import_req([fixture.product()]);self.material=self.case.value('/api/requisiciones/materiales')['materiales'][0]
  def tearDown(self):self.case.tearDown()
  def user(self,role):
-  email=role+'@example.com';extra={'almacenes':['EJIDOS']} if role=='almacenista' else {'sucursales':['EJIDOS']} if role=='requisicion' else {};self.case.value('/api/users',{'email':email,'name':role,'role':role,'active':True,'password':self.case.password,**extra});return self.case.login(email)
- def create(self,area):return self.case.value('/api/requisiciones',{'sucursal':'EJIDOS','area':area,'solicitante':'PRUEBA','observaciones':'','claveCliente':uuid.uuid4().hex,'partidas':[{'materialId':self.material['id'],'cantidad':'2','observaciones':''}]})['documento']
+  email=role+'@example.com';extra={'almacenes':['CENTRAL']} if role=='almacenista' else {'sucursales':['CENTRAL']} if role=='requisicion' else {};self.case.value('/api/users',{'email':email,'name':role,'role':role,'active':True,'password':self.case.password,**extra});return self.case.login(email)
+ def create(self,area):return self.case.value('/api/requisiciones',{'sucursal':'CENTRAL','area':area,'solicitante':'PRUEBA','observaciones':'','claveCliente':uuid.uuid4().hex,'partidas':[{'materialId':self.material['id'],'cantidad':'2','observaciones':''}]})['documento']
  def test_four_characters_create_change_login_and_initialization(self):
   short=secrets.token_urlsafe(3);email='password@example.com'
   self.assertEqual(len(short),4)
@@ -29,7 +29,7 @@ class PasswordAreaTests(unittest.TestCase):
   manager=self.user('gerente');self.case.value('/api/requisiciones/cambios',{'tipo':'modificar','objetivo':doc['id'],'revision':1,'motivo':'Corregir cantidad','datos':{'area':doc['area'],'solicitante':doc['solicitante'],'observaciones':'','partidas':[{'materialId':self.material['id'],'cantidad':'3','observaciones':''}]}},manager);self.assertEqual(self.case.value('/api/requisiciones/'+doc['id'])['area'],'Pruebas nuevas')
   self.assertEqual(self.create('Pruebas actualizadas')['area'],'Pruebas actualizadas')
  def test_duplicate_and_stale_area_updates(self):
-  catalog=self.case.value('/api/requisiciones/areas');self.assertEqual(self.case.call('/api/requisiciones/areas',{'nombre':'producción','revision':catalog['revision']})[0],400)
+  catalog=self.case.value('/api/requisiciones/areas');self.assertEqual(self.case.call('/api/requisiciones/areas',{'nombre':'operaciones','revision':catalog['revision']})[0],400)
   self.case.value('/api/requisiciones/areas',{'nombre':'Área exclusiva','revision':catalog['revision']});self.assertEqual(self.case.call('/api/requisiciones/areas',{'nombre':'Otra área','revision':catalog['revision']})[0],409)
  def test_area_backup_restore_legacy_and_reset(self):
   legacy=self.case.value('/api/respaldos?modulo=requisiciones');del legacy['datos']['tablas']['req_areas'];legacy['checksum']=digest({k:v for k,v in legacy.items() if k!='checksum'});self.case.review('requisiciones',legacy)

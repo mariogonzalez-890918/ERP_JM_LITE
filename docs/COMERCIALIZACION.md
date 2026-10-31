@@ -1,6 +1,6 @@
 # ERP JM Lite: base comercial instalable
 
-Estado: paquete piloto 0.1.0-dev. Producto independiente de GMP ERP. No se han conectado ni copiado sus bases, credenciales o maestros.
+Estado: paquete piloto 0.1.0-dev. Producto independiente de ERP JM Lite. No se han conectado ni copiado sus bases, credenciales o maestros.
 
 ## Arquitectura y acceso
 

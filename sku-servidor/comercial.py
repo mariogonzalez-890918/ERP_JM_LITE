@@ -108,7 +108,7 @@ class CommercialStore:
     value=json.loads(old[1]);value.update({'activa':False,'eliminada':True})
    else:
     name=text(data.get('nombre',''),200);branches=data.get('sucursales',[])
-    if not name or not isinstance(branches,list) or not branches or any(b not in BRANCHES for b in branches) or len(set(branches))!=len(branches):raise ValueError('Indica nombre y al menos una de las cuatro sucursales.')
+    if not name or not isinstance(branches,list) or not branches or any(b not in BRANCHES for b in branches) or len(set(branches))!=len(branches):raise ValueError('Indica nombre y al menos una de las sucursales configuradas.')
     value={'nombre':name,'rfc':text(data.get('rfc',''),30),'domicilio':text(data.get('domicilio',''),700),'contacto':text(data.get('contacto',''),200),'sucursales':branches,'activa':data.get('activa',True) is True,'eliminada':False}
     if old:
      for branch,payload in db.execute('SELECT branch,payload FROM cm_boxes WHERE company=?',(id,)):
@@ -138,7 +138,7 @@ class CommercialStore:
   return {'ok':True}
  def save_branch_companies(self,data,actor):
   self.admin(actor);branch=data.get('sucursal');selected=data.get('empresas');revisions=data.get('revisiones',{})
-  if branch not in BRANCHES or not isinstance(selected,list) or any(type(id) is not int for id in selected) or len(set(selected))!=len(selected) or not isinstance(revisions,dict):raise ValueError('Selecciona una de las cuatro sucursales y sus razones sociales.')
+  if branch not in BRANCHES or not isinstance(selected,list) or any(type(id) is not int for id in selected) or len(set(selected))!=len(selected) or not isinstance(revisions,dict):raise ValueError('Selecciona una de las sucursales configuradas y sus razones sociales.')
   with self.store.connect() as db:
    db.execute('BEGIN IMMEDIATE');rows=[(id,rev,json.loads(p)) for id,rev,p in db.execute('SELECT id,revision,payload FROM cm_companies') if not json.loads(p).get('eliminada')]
    if set(selected)-{id for id,_,_ in rows}:raise ValueError('Razón social no disponible.')
@@ -154,7 +154,7 @@ class CommercialStore:
   return {'ok':True}
  def access_list(self,actor):
   self.admin(actor)
-  with self.store.connect() as db:rows=db.execute('SELECT u.email,u.name,u.role,a.payload,a.revision FROM users u LEFT JOIN cm_access a ON a.email=u.email ORDER BY email').fetchall()
+  with self.store.connect() as db:rows=db.execute('SELECT u.email,u.name,u.role,a.payload,a.revision FROM users u LEFT JOIN cm_access a ON a.email=u.email WHERE u.email NOT IN (SELECT email FROM app_internal_admins) ORDER BY u.email').fetchall()
   return {'usuarios':[{'email':r[0],'nombre':r[1],'perfil':r[2],**(json.loads(r[3]) if r[3] else {'empresas':[],'sucursales':[],'cajas':[],'acciones':[]}), 'revision':r[4] or 0} for r in rows],'acciones':CAPS}
  def products(self,company,actor,channel,query='',customer=''):
   self.module(actor,channel);self.company(company,actor)
@@ -258,7 +258,7 @@ class CommercialStore:
  def templates(self,company,actor):
   self.module(actor,'ventasins');self.company(company,actor)
   with self.store.connect() as db:rows=db.execute('SELECT id,creator,revision,payload FROM cm_templates WHERE company=?',(company,)).fetchall()
-  with self.store.connect() as db:return {'plantillas':[{'id':id,'revision':rev,**json.loads(p)} for id,creator,rev,p in rows if (actor['role'] in ('superadmin','gerente') or creator==actor['email']) and (not json.loads(p).get('cliente') or self.visible_customer(db,json.loads(p)['cliente'],actor))]}
+  with self.store.connect() as db:return {'plantillas':[{'id':id,'revision':rev,**json.loads(p)} for id,creator,rev,p in rows if not json.loads(p).get('cliente') or self.visible_customer(db,json.loads(p)['cliente'],actor)]}
  def save_template(self,data,actor):
   self.module(actor,'ventasins')
   if actor['role'] not in ADMINS|{'gerente'}:raise PermissionError('Solo Gerencia, AUXTI y Superadministrador administran plantillas.')

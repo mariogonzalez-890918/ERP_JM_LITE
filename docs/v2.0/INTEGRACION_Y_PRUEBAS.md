@@ -16,9 +16,9 @@ Análisis sobre **1.8.0**, commit `10d47560fcbf057f5118cb444ddd78ad412e558d`. El
 | `autorizaciones.py`, `aprobaciones_admin.py` | Flujos de corrección/cancelación y autorizaciones de Sistemas. Incorporar un dominio comercial con sus propias acciones y alcances; no disfrazar ventas como requisiciones. |
 | `ticket.py` | Impresión Bixolon de 80 mm existente. Extraer primitivas de layout e impresión, manteniendo los contenidos y permisos propios de cada documento. |
 | `respaldos.py` | Respalda SKU Compras, SKU Ventas y un conjunto cerrado de tablas de requisiciones. No cubre futuras tablas comerciales: debe ampliarse explícitamente. |
-| `tools/build_public.py`, `sku/SKU-JAD-Servidor.spec` | Lista de archivos y empaquetado del EXE. Incluir módulos futuros expresamente, validar una instalación vacía y una migrada, sin credenciales ni datos reales en Releases. |
+| `tools/build_public.py`, `sku/ERP_JM_Lite.spec` | Lista de archivos y empaquetado del EXE. Incluir módulos futuros expresamente, validar una instalación vacía y una migrada, sin credenciales ni datos reales en Releases. |
 
-Los directorios de otros proyectos del workspace, como `ventas-test`, no pertenecen al código publicado de SKU_RFQ; no se reutilizan ni se incluyen automáticamente.
+Los directorios de otros proyectos del workspace, como `ventas-test`, no pertenecen al código publicado de ERP_JM_LITE; no se reutilizan ni se incluyen automáticamente.
 
 ## Modelo propuesto
 

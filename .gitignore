@@ -24,7 +24,7 @@
 !/sku/erp-pages.html
 !/sku/template.html
 !/sku/build-server.mjs
-!/sku/SKU-JAD-Servidor.spec
+!/sku/ERP_JM_Lite.spec
 /sku-servidor/*
 !/sku-servidor/*.py
 !/sku-servidor/*.bat
@@ -36,7 +36,6 @@
 !/sku-servidor/public/app.js
 !/sku-servidor/public/index.html
 !/sku-servidor/public/login.html
-!/sku-servidor/public/logo.png
 !/sku-servidor/public/logo.svg
 /tools/*
 !/tools/inicializar.py
@@ -140,4 +139,14 @@
 !/sku/quality-panel.html
 !/docs/COMERCIALIZACION.md
 !/docs/EDICION_COMERCIAL.md
+!/tools/provision_activation.py
+!/sku-servidor/public/crm.html
+!/sku-servidor/public/crm.js
+!/tests/test_crm_privacy.py
+!/tests/test_auth_security.py
+!/tests/test_taxonomy.py
+!/tests/catalog_fixture.py
+!/sku-servidor/public/security.html
+!/sku-servidor/public/security.js
+!/sku-servidor/public/theme.js
 !/docs/COMERCIALIZACION.md

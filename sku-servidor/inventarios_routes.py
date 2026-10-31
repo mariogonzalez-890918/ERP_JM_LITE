@@ -9,7 +9,7 @@ def kardex_export(result,filters,action,costs):
  import html,io,xml.etree.ElementTree as ET
  if action=='kardex/xml':
   root=ET.Element('Kardex',{'aplicacion':'ERP JM Lite','version':'1'});f=ET.SubElement(root,'Filtros')
-  for key in ('almacen','desde','hasta','sku','direccion','tipo'):ET.SubElement(f,key).text=display_date(filters.get(key,'')) if key in ('desde','hasta') else filters.get(key,'')
+  for key in ('almacen','desde','hasta','sku','direccion','tipo','referencia','usuario','q'):ET.SubElement(f,key).text=display_date(filters.get(key,'')) if key in ('desde','hasta') else filters.get(key,'')
   for section,row_name,key in (('Resumen','Material','resumenPorSku'),('Movimientos','Movimiento','movimientos')):
    group=ET.SubElement(root,section)
    for row in result[key]:

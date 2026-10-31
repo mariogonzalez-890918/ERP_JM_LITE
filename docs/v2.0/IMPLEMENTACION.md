@@ -26,7 +26,7 @@ Eliminar conserva el registro inactivo y las copias históricas en documentos. N
 - Expendios: productos por categoría/módulo PDV, eliminación de partidas antes de cobrar, listas RUTA/DESPACHO, efectivo/tarjeta/transferencia, cambio, sesiones y cierre con diferencia de efectivo.
 - Solicitudes de cancelación del TPV con folio propio: solo AUXTI y Superadministrador resuelven. Cancelar no registra por sí solo una salida de dinero; el reembolso real se confirma aparte y queda auditado.
 - IVA 0%, 8% y 16% extraído de precios finales con `Decimal`. El precio enviado por el navegador se ignora en TPV. Se conservan precios, impuestos y datos del emisor del documento emitido.
-- Ticket Bixolon de 80 mm: encabezado con logo Mi Pan y/o sucursal, ambos opcionales por caja. No imprime razón social, RFC, domicilio fiscal ni campos fiscales del cliente. Documento institucional imprimible por separado.
+- Ticket Bixolon de 80 mm: encabezado con logo ERP JM Lite y/o sucursal, ambos opcionales por caja. No imprime razón social, RFC, domicilio fiscal ni campos fiscales del cliente. Documento institucional imprimible por separado.
 - Reportes por razón social, fechas y estado, presupuestos/pedidos separados en indicadores, selección de filas y columnas, configuraciones guardadas por usuario, exportación XLSX/CSV/PDF. Cancelaciones excluidas del total exportado.
 - Menús comerciales con composición inspirada en Odoo 14, diferentes de los módulos actuales. Menú adaptable para celular y tablet. Implementación propia, sin dependencias del código Enterprise.
 

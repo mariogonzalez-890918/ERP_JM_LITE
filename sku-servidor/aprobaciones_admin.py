@@ -1,3 +1,4 @@
+from app_info import is_internal_admin
 """Autorizaciones de sistemas para operaciones destructivas solicitadas por AUXTI."""
 import copy,hashlib,json,uuid
 from permissions import require_module
@@ -84,7 +85,7 @@ class AdminApprovals:
    if digest([review['huellaActual'],data])!=token:raise Conflict('El módulo cambió. Solicita una nueva autorización.')
    self.backups.review({**data,'huellaActual':review['huellaActual'],'confirmar':True},actor,True)
  def decide(self,id,data,actor):
-  if actor['role']!='superadmin' or actor['email']!=OWNER:raise PermissionError('Solo mario.gonzalez@jad-ayt.com puede autorizar eliminaciones de AUXTI.')
+  if not is_internal_admin(actor):raise PermissionError('Solo Sistemas puede autorizar eliminaciones de AUXTI.')
   approved=data.get('aprobar');comment=text(data.get('comentario',''),1000)
   if type(approved) is not bool or not comment:raise ValueError('Indica decisión y comentario.')
   with self.store.connect() as db:

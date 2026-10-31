@@ -5,7 +5,8 @@ param(
     [string]$InstallDir = (Join-Path $env:ProgramFiles 'ERP JM Lite'),
     [string]$DataRoot = (Join-Path $env:ProgramData 'ERP JM Lite'),
     [switch]$OpenFirewall,
-    [string]$AdminSeed
+    [string]$AdminSeed,
+    [string]$ActivationVerifier
 )
 $ErrorActionPreference = 'Stop'
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -29,7 +30,7 @@ New-Item -ItemType Directory -Path $InstallDir,$DataRoot -Force | Out-Null
 & icacls.exe $DataRoot /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'No se pudieron proteger los datos.' }
 $configPath = Join-Path $DataRoot 'config.json'
-$config = @{host='0.0.0.0';port=8080;data_dir='data';log_dir='logs'}
+$config = @{host='0.0.0.0';port=8080;data_dir='data';log_dir='logs';require_activation=$true}
 if (Test-Path -LiteralPath $configPath) {
     $existing = Get-Content -Raw -LiteralPath $configPath | ConvertFrom-Json
     foreach ($key in @('host','port','data_dir','log_dir')) { if ($null -ne $existing.$key) { $config[$key] = $existing.$key } }
@@ -51,6 +52,10 @@ $config | ConvertTo-Json | Set-Content -LiteralPath $configPath -Encoding UTF8
 if ($AdminSeed) { & $exe --config $configPath --initialize --admin-seed $AdminSeed }
 else { & $exe --config $configPath --initialize }
 if ($LASTEXITCODE -ne 0) { throw 'No se pudo inicializar la base. No se registro el inicio automatico.' }
+if ($ActivationVerifier) {
+    $privateData = if ([IO.Path]::IsPathRooted($config.data_dir)) {$config.data_dir} else {Join-Path $DataRoot $config.data_dir}
+    Copy-Item -LiteralPath $ActivationVerifier -Destination (Join-Path $privateData 'activation-verifier.json') -Force
+}
 $action = New-ScheduledTaskAction -Execute $exe -Argument ('--config "'+$configPath+'"') -WorkingDirectory $InstallDir
 $trigger = New-ScheduledTaskTrigger -AtStartup
 $settings = New-ScheduledTaskSettingsSet -RestartCount 5 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -StartWhenAvailable -MultipleInstances IgnoreNew

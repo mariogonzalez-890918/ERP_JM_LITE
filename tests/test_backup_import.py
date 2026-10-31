@@ -2,6 +2,7 @@ import base64,contextlib,copy,importlib.util,io,json,pathlib,secrets,shutil,sys,
 from unittest.mock import patch
 ROOT=pathlib.Path(__file__).resolve().parent.parent;sys.path.insert(0,str(ROOT/'sku-servidor'))
 import server,requisiciones,ventas,respaldos
+import catalog_fixture
 spec=importlib.util.spec_from_file_location('init_local',ROOT/'tools/inicializar.py');initializer=importlib.util.module_from_spec(spec);spec.loader.exec_module(initializer)
 HEADERS={'A':'CLAVE PROVEEDOR','B':'SKU','C':'STATUS DE COMPRA','D':'','E':'PRODUCTO','F':'CATEGORÍA','G':'SUBCATEGORÍA','H':'DESCRIPCIÓN','I':'PRECIO DE COMPRA','L':'U_M','M':'UM_COMPRA','N':'UM_ENTREGA','O':'PROVEEDOR PRINCIPAL','U':'UM_ENTREGA SUCURSALES'}
 def workbook(rows,sheet='PRODUCTOS',headers=None):
@@ -20,7 +21,7 @@ class ModuleBackupTests(unittest.TestCase):
  def setUp(self):
   self.tmp=tempfile.TemporaryDirectory();root=pathlib.Path(self.tmp.name);self.root=root;self.password=secrets.token_urlsafe(20);initializer.create_initials(root,self.password);shutil.copy2(ROOT/'sku-servidor/catalogos.json',root/'catalogos.json');shutil.copytree(ROOT/'sku-servidor/public',root/'public');self.context=contextlib.ExitStack()
   for module in (server,requisiciones,ventas):self.context.enter_context(patch.object(module,'ROOT',root))
-  self.store=server.Store(root/'data');self.http=server.http.server.ThreadingHTTPServer(('127.0.0.1',0),server.create_handler(self.store));threading.Thread(target=self.http.serve_forever,daemon=True).start();self.url='http://127.0.0.1:'+str(self.http.server_port);self.admin=self.login(server.ADMIN_EMAIL)
+  self.store=server.Store(root/'data');catalog_fixture.install(self.store);self.http=server.http.server.ThreadingHTTPServer(('127.0.0.1',0),server.create_handler(self.store));threading.Thread(target=self.http.serve_forever,daemon=True).start();self.url='http://127.0.0.1:'+str(self.http.server_port);self.admin=self.login(server.ADMIN_EMAIL)
  def tearDown(self):self.http.shutdown();self.http.server_close();self.context.close();self.tmp.cleanup()
  def call(self,path,data=None,actor=None,method=None):
   actor=actor or self.admin if hasattr(self,'admin') else actor;headers={'Content-Type':'application/json'}
@@ -38,7 +39,7 @@ class ModuleBackupTests(unittest.TestCase):
  def import_req(self,rows):return self.value('/api/requisiciones/maestro',{'archivo':'PRUEBA.xlsx','contenido':workbook(rows)})
  def create_req(self,quantity='3'):
   material=self.value('/api/requisiciones/materiales')['materiales'][0]
-  return self.value('/api/requisiciones',{'sucursal':'EJIDOS','area':'Produccion Donas','solicitante':'PRUEBA','observaciones':'','claveCliente':uuid.uuid4().hex,'partidas':[{'materialId':material['id'],'cantidad':quantity,'observaciones':''}]})['documento']
+  return self.value('/api/requisiciones',{'sucursal':'CENTRAL','area':'Operaciones','solicitante':'PRUEBA','observaciones':'','claveCliente':uuid.uuid4().hex,'partidas':[{'materialId':material['id'],'cantidad':quantity,'observaciones':''}]})['documento']
  def delivered_req(self,quantity='3'):
   doc=self.create_req(quantity)
   self.value('/api/requisiciones/cambios',{'tipo':'surtir','objetivo':doc['id'],'revision':1,'motivo':'Entrega de prueba','datos':{'partidas':[{'materialId':doc['partidas'][0]['materialId'],'cantidadSurtida':quantity}]}})

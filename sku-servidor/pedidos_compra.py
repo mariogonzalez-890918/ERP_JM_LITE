@@ -113,7 +113,7 @@ class PurchaseStore:
  def access_list(self,actor):
   self.scope(actor)
   if actor['role'] not in ADMINS:raise PermissionError('Solo administración.')
-  with self.store.connect() as db:return {'usuarios':[{'email':e,'nombre':n,'perfil':r,**self.access({'email':e},db)} for e,n,r in db.execute('SELECT email,name,role FROM users WHERE active=1 ORDER BY email')]}
+  with self.store.connect() as db:return {'usuarios':[{'email':e,'nombre':n,'perfil':r,**self.access({'email':e},db)} for e,n,r in db.execute('SELECT email,name,role FROM users WHERE active=1 AND email NOT IN (SELECT email FROM app_internal_admins) ORDER BY email')]}
  def vendors(self,company,actor):
   self.scope(actor,company)
   with self.store.connect() as db:return {'proveedores':[{'id':i,'codigo':c,'revision':r,**json.loads(p)} for i,c,r,p in db.execute('SELECT id,code,revision,payload FROM po_vendors WHERE company=? ORDER BY code',(company,))]}
@@ -156,7 +156,7 @@ class PurchaseStore:
   self.cache=(stamp,result);return {'materiales':copy.deepcopy(result)}
  def sequence(self,db,company,branch,kind):
   if kind not in ('COTIZACION','PEDIDO','RECEPCION','COMPRA'):raise ValueError('Tipo de serie inválido.')
-  defaults={'COTIZACION':'SC','PEDIDO':'OC','RECEPCION':'REC','COMPRA':'CMP'};suffix={'EJIDOS':'EJI','SAN PABLO':'SP','CUAUTITLAN':'CUA','EJE 8':'E8'}[branch]
+  defaults={'COTIZACION':'SC','PEDIDO':'OC','RECEPCION':'REC','COMPRA':'CMP'};suffix=BRANCHES[branch].removeprefix('REQ-')
   db.execute('INSERT OR IGNORE INTO po_sequences VALUES(?,?,?,?,1,1)',(company,branch,kind,defaults[kind]+'-'+str(company).zfill(2)+'-'+suffix));db.execute('INSERT OR IGNORE INTO po_series_registry SELECT company,series,branch,kind FROM po_sequences');row=db.execute('SELECT series,next,revision FROM po_sequences WHERE company=? AND branch=? AND kind=?',(company,branch,kind)).fetchone();used=db.execute('SELECT MAX(number) FROM po_numbers WHERE company=? AND series=?',(company,row[0])).fetchone()[0] or 0
   if used>=row[1]:db.execute('UPDATE po_sequences SET next=?,revision=revision+1 WHERE company=? AND branch=? AND kind=?',(used+1,company,branch,kind));row=(row[0],used+1,row[2]+1)
   return {'serie':row[0],'siguiente':row[1],'revision':row[2]}
@@ -353,7 +353,7 @@ class PurchaseStore:
   tables={}
   for name in TABLES:
    columns=[r[1] for r in db.execute('PRAGMA table_info('+name+')')];tables[name]={'columnas':columns,'filas':[list(r) for r in db.execute('SELECT * FROM '+name)]}
-  content={'formato':'GMP_ERP_COMPRAS_3','tablas':tables};return {**content,'checksum':fingerprint(content)}
+  content={'formato':'JM_ERP_COMPRAS_3','tablas':tables};return {**content,'checksum':fingerprint(content)}
  def restore(self,data,actor):
   self.scope(actor)
   if actor['role']!='superadmin':raise PermissionError('Solo Sistemas puede restaurar datos de Compras.')
@@ -361,7 +361,7 @@ class PurchaseStore:
   if apply:
    with self.store.connect() as guard:
     if guard.execute("SELECT 1 FROM sqlite_master WHERE name='inv_ledger'").fetchone() and guard.execute("SELECT 1 FROM inv_ledger WHERE json_extract(payload,'$.tipo')='RECEPCION_COMPRA' LIMIT 1").fetchone():raise Conflict('Hay recepciones integradas al inventario. Recupera una copia completa de data; restaurar solo Compras desajustaría las existencias.')
-  if not isinstance(payload,dict) or payload.get('formato')!='GMP_ERP_COMPRAS_3' or payload.get('checksum')!=fingerprint({k:v for k,v in payload.items() if k!='checksum'}) or set(payload.get('tablas',{}))!=set(TABLES):raise ValueError('Respaldo de Compras inválido o dañado.')
+  if not isinstance(payload,dict) or payload.get('formato')!='JM_ERP_COMPRAS_3' or payload.get('checksum')!=fingerprint({k:v for k,v in payload.items() if k!='checksum'}) or set(payload.get('tablas',{}))!=set(TABLES):raise ValueError('Respaldo de Compras inválido o dañado.')
   with self.store.connect() as db:
    db.execute('BEGIN IMMEDIATE');current=self.backup(actor,db)
    if db.execute("SELECT 1 FROM po_mail WHERE state='ENVIANDO'").fetchone():raise ValueError('Hay un correo en proceso. Espera antes de restaurar.')

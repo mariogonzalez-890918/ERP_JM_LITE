@@ -6,15 +6,15 @@ ROOT=pathlib.Path(__file__).resolve().parent
 NS='http://schemas.openxmlformats.org/spreadsheetml/2006/main'
 N={'m':NS}
 ALPHABET='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-TIP={'PP':'PRODUCTO EN PROCESO','PT':'PRODUCTO TERMINADO'}
-CAT=dict(zip('AP GE LI MA PB PD PG PM RE RP TO'.split(),['ALIMENTOS PREPARADOS','GELATINAS','LIQUIDOS','MASAS','PAN BLANCO','PAN DULCE','PASTELES Y GALLETAS','PLANCHAS Y MAMONES','REPOSTERIA','REPROCESO','TORTILLA']))
-SUB={str(i+1).zfill(2):v for i,v in enumerate(['BAGEL','BARRA','BASE PARA PIZZA','BATIDO','BIZCOCHO','BOCADILLOS','BOLILLO','BOLLO','CHAPATA','CHESSECAKE','ESPECIALIDAD','GALLETAS','GELATINA COMBINADA','GELATINA DE AGUA','GELATINA DE LECHE','GELATINA ESPECIAL','LACTEOS','MASA PAN BLANCO','PAN BLANCO','PAN DE CAJA','PAN DE ESPECIES','PAN DE HOT DOG','PAN DULCE','PAN ESPAÑOL','PAN MOLIDO','PASTEL COMERCIAL','PASTEL PEDIDO','PIZZA','POLVORON','POSTRE','PRODUCTO DE TEMPORADA','REPOSTERIA','REPOSTERIA FINA','RUSTICO','TELERA','TORTILLA DE HARINA','VARIEDAD','VARIOS'])}
-PDV={f'A{i+1:02}':v for i,v in enumerate(['BIZCOCHO','CAFETERIA','CHEESECAKE','DONA','EMPACADO','GALLETAS','GELATINAS','MINI Y REB','PASTEL 10 PORCIONES','PASTEL 20 PORCIONES','PAN BLANCO','PASTEL MINI','PASTEL PEDIDO','PIZZA','PAN PEDIDO','POSTRE','PRODUCTO DE TEMPORADA','PASTEL BARRA','REPOSTERIA','REPOSTERIA FINA','RUSTICO','VELA'])}
+TIP={}
+CAT={}
+SUB={}
+PDV={}
 ALIASES={'PRODUCTOS EN PROCESO':'PRODUCTO EN PROCESO','RUSTICOS':'RUSTICO','GELATINAS COMBINADAS':'GELATINA COMBINADA','CHEESECAKE':'CHESSECAKE'}
 def norm(v):return ' '.join(''.join(c for c in unicodedata.normalize('NFD',str(v or '')) if not unicodedata.combining(c)).upper().split())
 def resolve(v,table):
- s=norm(v);s=ALIASES.get(s,s)
- return next((k for k,name in table.items() if s in (k,norm(name))), '00')
+ s=norm(v);alias=ALIASES.get(s,s)
+ return next((k for k,name in table.items() if s in (k,norm(name)) or alias in (k,norm(name))), '00')
 def resolve_pdv(value):
  s=norm(value)
  if s=='CHESSECAKE':s='CHEESECAKE'
@@ -77,7 +77,7 @@ def validate(data):
   if type(r.get('id')) is not int or not 1<=r['id']<=s['maxId'] or r['id'] in ids:raise ValueError('Identificador de ventas repetido o inválido.')
   ids.add(r['id'])
   if not isinstance(r.get('nombre'),str) or not r['nombre'].strip() or len(r['nombre'])>300 or type(r.get('eliminado')) is not bool or type(r.get('validado')) is not bool:raise ValueError('Artículo de ventas inválido.')
-  if r.get('modulo') not in PDV and r.get('modulo')!='000':raise ValueError('Módulo PDV inválido. Utiliza A01–A22.')
+  if r.get('modulo') not in PDV and r.get('modulo')!='000':raise ValueError('Agrupación PDV inválida. Configúrala en Empresa y selecciona un código disponible.')
   for field,table in [('tipo',TIP),('categoria',CAT),('subcategoria',SUB)]:
    if r.get(field) not in table and r.get(field)!='00':raise ValueError('Clasificación de ventas inválida.')
   sku=r.get('sku','')

@@ -130,3 +130,15 @@ class QualityLite:
   with self.store.connect() as db:row=db.execute('SELECT content FROM q_files WHERE id=?',(id,)).fetchone()
   if not row:raise ValueError('Evidencia no disponible.')
   return bytes(row[0]),'application/octet-stream'
+ def export(self,query,actor,pdf=False):
+  from comercial_print import report_xlsx,report_pdf
+  result=self.get({k:v for k,v in query.items() if k!='id'},actor);items=result['registros'];fields=[]
+  for item in items:
+   labels=[f['label'] for f in item['datos'].get('schema',[])] if item['modulo']=='records' else [k.replace('_',' ').capitalize() for k in item['datos'] if k!='schema']
+   for label in labels:
+    if label not in fields:fields.append(label)
+  rows=[['Código','Título','Versión','Estado','Actualizado',*fields]]
+  for item in items:
+   values={f['label']:item['datos']['valores'].get(f['id'],'') for f in item['datos'].get('schema',[])} if item['modulo']=='records' else {k.replace('_',' ').capitalize():v for k,v in item['datos'].items() if k!='schema'}
+   rows.append([item['codigo'],item['titulo'],item['version'],item['estado'],item['actualizado'],*[str(values.get(f,'')) for f in fields]])
+  return (report_pdf(rows,'QualityLite · '+MODULES[query.get('modulo','documents')]),'application/pdf') if pdf else (report_xlsx(rows,'CALIDAD'),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')

@@ -1,6 +1,6 @@
 # ERP JM Lite
 
-Base independiente para la futura edición comercial del ERP, derivada de GMP ERP 3.1.8.
+Base comercial independiente de ERP JM Lite.
 
 Incluye SKU, requisiciones, compras, almacenes y Kárdex, pedidos institucionales y expendios. Esta primera copia mantiene la arquitectura y reglas de la aplicación de origen; aún no es una edición comercial terminada.
 

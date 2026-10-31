@@ -1,6 +1,7 @@
 """Sucursales comerciales persistentes; sin nombres de la empresa de origen."""
 import re
-BRANCHES={'CENTRAL':'REQ-CEN'}
+DEFAULT_BRANCHES={'CENTRAL':'REQ-CEN','NORTE':'REQ-NOR','SUR':'REQ-SUR','ORIENTE':'REQ-ORI'}
+BRANCHES=dict(DEFAULT_BRANCHES)
 
 def load_branches(store):
  with store.connect() as db:
@@ -10,7 +11,7 @@ def load_branches(store):
    tables={r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
    used=any(db.execute('SELECT 1 FROM '+table+' LIMIT 1').fetchone() for table in ('req_documents','cm_documents','po_orders') if table in tables)
    old=db.execute('SELECT branch,series FROM req_branches').fetchall() if used and 'req_branches' in tables else []
-   db.executemany('INSERT INTO app_branches VALUES(?,?,1)',old or [('CENTRAL','REQ-CEN')])
+   db.executemany('INSERT INTO app_branches VALUES(?,?,1)',old or list(DEFAULT_BRANCHES.items()))
    if not used:
     for table in ('req_branches','req_series_registry'):
      if table in tables:db.execute('DELETE FROM '+table)

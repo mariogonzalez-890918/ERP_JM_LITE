@@ -72,7 +72,7 @@ def report_pdf(r):
  from reportlab.platypus import SimpleDocTemplate,Paragraph,Spacer,LongTable,TableStyle,PageBreak,KeepTogether
  if len(r['detalle'])>10000:raise ValueError('Para PDF reduce los filtros a 10,000 partidas. Excel y CSV incluyen el detalle completo.')
  out=io.BytesIO();page=landscape(A4);doc=SimpleDocTemplate(out,pagesize=page,rightMargin=25,leftMargin=25,topMargin=28,bottomMargin=32,title=r['configuracion']['nombre'],author='ERP JM Lite')
- normal=ParagraphStyle('GMP',fontName='Helvetica',fontSize=8,leading=11,spaceAfter=5)
+ normal=ParagraphStyle('JM',fontName='Helvetica',fontSize=8,leading=11,spaceAfter=5)
  small=ParagraphStyle('Small',parent=normal,fontSize=7,leading=9,spaceAfter=0)
  heading=ParagraphStyle('Heading',parent=normal,fontSize=18,leading=22,textColor=colors.HexColor('#284e42'),spaceAfter=12)
  white=ParagraphStyle('White',parent=small,textColor=colors.white,fontName='Helvetica-Bold')
@@ -96,6 +96,6 @@ def report_pdf(r):
    rows.append([d['folio']+'\n'+d['fecha'],d['sucursal']+'\n'+d['area']+'\n'+d['solicitante'],d['descripcion']+'\n'+(d['sku'] or 'ID '+str(d['materialId']))+review,d['cantidadRequisitada']+' / '+d['cantidadSurtida']+' '+d['unidad']+'\n'+d['estado'],unit_price,fmt(d['totalRequisitado']),fmt(d['costoCompra']),fmt(d['importeImpuestos']),fmt(d['total'])])
   story.append(table(rows,[width*x for x in (.10,.13,.20,.13,.08,.10,.10,.07,.09)]))
  def footer(canvas,document):
-  canvas.saveState();canvas.setFont('Helvetica',8);canvas.setFillColor(colors.HexColor('#555555'));canvas.drawString(25,16,'GMP · '+display_date(r['generado'])+' · Canceladas excluidas del costeo');canvas.drawRightString(page[0]-25,16,'Página '+str(document.page));canvas.restoreState()
+  canvas.saveState();canvas.setFont('Helvetica',8);canvas.setFillColor(colors.HexColor('#555555'));canvas.drawString(25,16,'JM · '+display_date(r['generado'])+' · Canceladas excluidas del costeo');canvas.drawRightString(page[0]-25,16,'Página '+str(document.page));canvas.restoreState()
  doc.build(story,onFirstPage=footer,onLaterPages=footer);return out.getvalue()
 

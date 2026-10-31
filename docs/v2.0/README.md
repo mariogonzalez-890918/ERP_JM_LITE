@@ -27,7 +27,7 @@ Se integrarán **VentasIns** y **Expendios** en el mismo ERP JM Lite, con sus us
 | Integración | Una aplicación, autenticación y base de datos compartidas; módulos comerciales separados de los generadores SKU. |
 | Perfiles nuevos | Etiquetas **Expendios** y **VentasIns**, claves internas `expendios` y `ventasins`. No se crean cuentas ni contraseñas en este análisis. |
 | Acceso al TPV | Superadministrador asigna **Ver Expendios / Punto de Venta** por perfil. Ver no concede operar caja ni modificar precios. |
-| Apariencia | Reproducir de cerca la estructura y composición de Odoo Enterprise 14 en los módulos nuevos: selector de aplicaciones, barra superior, listas, formularios, estados y caja. Mantener la identidad GMP. |
+| Apariencia | Reproducir de cerca la estructura y composición de Odoo Enterprise 14 en los módulos nuevos: selector de aplicaciones, barra superior, listas, formularios, estados y caja. Mantener la identidad JM. |
 | Presupuestos | Plantillas reutilizables, conversión trazable a pedido y versiones de precios. |
 | Precios | Listas por canal, sucursal, cliente y vigencia, con una selección explícita y reproducible. |
 | Expendios | Cajas y sesiones por sucursal, cobros, tickets y cierre; permisos para cambios, cancelaciones y devoluciones. |

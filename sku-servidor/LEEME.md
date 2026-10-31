@@ -1,6 +1,6 @@
 # ERP JM Lite
 
-GENERADOR DE SKU GMP - MAESTROS, UNIDAD DE ENTREGA Y RESPALDOS
+GENERADOR DE SKU JM - MAESTROS, UNIDAD DE ENTREGA Y RESPALDOS
 
 MAESTRO DE COMPRAS
 En SKU Compras > Cargar listas > Actualizar maestro de compras · PRODUCTOS,
@@ -69,7 +69,7 @@ Al iniciar se ajusta la prioridad de UM_ENTREGA a partir del maestro guardado,
 sin cambiar los folios ni los datos de las solicitudes ya emitidas.
 
 
-GENERADOR DE SKU GMP - WINDOWS DE 64 BITS
+GENERADOR DE SKU JM - WINDOWS DE 64 BITS
 
 1. Copia la carpeta a una ruta fija del servidor, por ejemplo C:\SKU-JAD.
 2. Abre ERP_JM_Lite.exe. No necesitas instalar Python.
@@ -78,7 +78,7 @@ GENERADOR DE SKU GMP - WINDOWS DE 64 BITS
 5. Desde otra computadora abre http://IP-DEL-SERVIDOR:8080
    Usa la IP local, la de Radmin VPN o la de ZeroTier, según tu conexión.
 
-El EXE incluye compras (774 artículos) y ventas (625 artículos) y el logo GMP.
+El EXE incluye compras (774 artículos) y ventas (625 artículos) y el logo JM.
 Incluye Requisición de materiales con 700 artículos de la pestaña PRODUCTOS,
 áreas solicitantes, series por sucursal y fecha asignada por el servidor.
 Consulta REQUISICIONES.txt para cargar maestros, emitir e imprimir solicitudes.
@@ -113,7 +113,7 @@ Administrar usuarios y perfiles. Alta de productos no tiene acceso a respaldos.
 Los respaldos son
 exclusivos del superadministrador.
 
-Consulta ACTUALIZAR-GMP.txt para sustituir el EXE anterior sin perder datos.
+Consulta ACTUALIZAR-JM.txt para sustituir el EXE anterior sin perder datos.
 
 Consulta AUTORIZACIONES-Y-DESCARGAS.txt para Excel, PDF y cambios autorizados.
 
@@ -125,7 +125,7 @@ ACTUALIZACIÓN DE MAESTROS Y RESPALDOS: consulta MAESTROS-Y-RESPALDOS.txt.
 
 
 
-GENERADOR DE SKU GMP - NUEVA NAVEGACIÓN
+GENERADOR DE SKU JM - NUEVA NAVEGACIÓN
 
 INICIO
 Al iniciar sesión verás las tarjetas de las herramientas permitidas para tu
@@ -164,7 +164,7 @@ Conserva data y config.json. Esta actualización reorganiza la interfaz;
 no reinicia usuarios, catálogos, solicitudes, permisos ni folios.
 
 
-GENERADOR DE SKU GMP - REQUISICION DE MATERIALES
+GENERADOR DE SKU JM - REQUISICION DE MATERIALES
 
 MAESTRO INICIAL
 Se cargan exclusivamente los 700 artículos de la pestaña PRODUCTOS del archivo
@@ -259,7 +259,7 @@ usuarios ni contraseñas existentes. No copies carpetas de pruebas al servidor.
 El acceso continúa en http://IP-DEL-SERVIDOR:8080 por LAN, Radmin o ZeroTier.
 
 
-GENERADOR DE SKU GMP - ACCESOS POR PERFIL Y REPORTES DE COSTO
+GENERADOR DE SKU JM - ACCESOS POR PERFIL Y REPORTES DE COSTO
 
 MODULOS POR PERFIL
 Superadministrador dispone de Acceso a módulos por perfil, arriba de las pestañas.
@@ -331,7 +331,7 @@ Una equivalencia cero queda pendiente, sin división entre cero ni costo gratuit
 
 
 
-GENERADOR DE SKU GMP - REPORTES Y CAMBIOS AUTORIZADOS
+GENERADOR DE SKU JM - REPORTES Y CAMBIOS AUTORIZADOS
 
 VARIOS REPORTES Y DESCARGAS
 En el menú izquierdo > Reportes de requisición:

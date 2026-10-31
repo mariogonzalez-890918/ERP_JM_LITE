@@ -18,7 +18,7 @@ Compras imprime solo en A4 y PDF. Observaciones: 100,000 caracteres; condiciones
 
 Correo: Sistemas/AUXTI configuran SMTP TLS privado; solo el botón explícito de envío envía un PDF real al destinatario revisado. Un envío no confirmado queda REVISAR, sin reintentos automáticos. El respaldo de Compras no contiene contraseñas SMTP. No se envían correos de prueba a proveedores durante el desarrollo.
 
-Actualización: detener el EXE anterior, conservar data y config.json y ejecutar GMP_ERP.exe en la misma carpeta. El EXE público no contiene maestros, datos empresariales ni credenciales. El primer inicio de una instalación nueva solicita crear contraseña. Los respaldos de Compras se descargan en su módulo; solo Sistemas restaura y se conserva una copia previa.
+Actualización: detener el EXE anterior, conservar data y config.json y ejecutar JM_ERP.exe en la misma carpeta. El EXE público no contiene maestros, datos empresariales ni credenciales. El primer inicio de una instalación nueva solicita crear contraseña. Los respaldos de Compras se descargan en su módulo; solo Sistemas restaura y se conserva una copia previa.
 
 ## Correcciones 3.0.1
 

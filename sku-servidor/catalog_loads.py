@@ -18,10 +18,19 @@ LAYOUTS={
  'sucursales':('Sucursales','SUCURSALES',{'A':'NOMBRE','B':'SERIE'},'empresa','Configura las sucursales en Empresa; usa series únicas y conserva los nombres históricos.'),
  'usuarios':('Usuarios y perfiles','USUARIOS',{'A':'CORREO','B':'NOMBRE','C':'PERFIL','D':'SUCURSALES','E':'ALMACENES'},'empresa','Captura usuarios desde Administración. Las contraseñas se establecen individualmente, fuera del layout.')}
 QUALITY={'documentos':'documents','formatos':'forms','registros':'records','auditorias':'audits','no-conformidades':'findings','acciones-correctivas':'actions'}
+def column(index):
+ result='';index+=1
+ while index:index,r=divmod(index-1,26);result=chr(65+r)+result
+ return result
 for name,module in QUALITY.items():
  from quality_lite import FIELDS,MODULES
- headers={'A':'CODIGO','B':'TITULO','C':'DATOS_JSON'}
- LAYOUTS[name]=(MODULES[module],name.upper(),headers,'calidad','DATOS_JSON usa los campos del módulo; los formatos incluyen schema y los registros formato/valores. La carga crea borradores para revisar y aprobar.')
+ fields=['CODIGO','TITULO']+([f.upper() for f in FIELDS[module]] if module not in ('forms','records') else ['AREA','RESPONSABLE','DESCRIPCION','INSTRUCCIONES','CAMPO','ETIQUETA','TIPO','OBLIGATORIO','OPCIONES','SECCION'] if module=='forms' else ['FORMATO','VERSION','CAMPO','VALOR'])
+ headers={column(i):field for i,field in enumerate(fields)}
+ note='Completa los campos de cada fila. La carga crea borradores que deben revisarse antes de aprobar.'
+ if module=='forms':note='Una fila por campo del formato. Usa el mismo CODIGO/TITULO; TIPO: texto, fecha, numero, lista, tabla, etc. OPCIONES separadas por coma. OBLIGATORIO: SI o NO.'
+ if module=='records':note='Una fila por campo del registro. Indica CODIGO/TITULO, código y versión de un formato aprobado, CAMPO y VALOR. Se valida el tipo y los campos obligatorios.'
+ LAYOUTS[name]=(MODULES[module],name.upper(),headers,'calidad',note)
+LAYOUTS.update({'crm':('Prospectos y oportunidades','CRM',{'A':'OPORTUNIDAD','B':'CLIENTE','C':'ETAPA','D':'IMPORTE','E':'CONTACTO','F':'PROXIMO_SEGUIMIENTO'},'ventasins','Captura estos datos en Vendedores y CRM. Cada vendedor opera únicamente su cartera.'),'vendedores':('Vendedores y asignaciones','VENDEDORES',{'A':'VENDEDOR','B':'CLIENTE','C':'EMPRESA'},'ventasins','Sistemas asigna o reasigna clientes desde Vendedores y CRM.'),'clasificaciones':('Clasificaciones SKU','CLASIFICACIONES',{'A':'AMBITO','B':'GRUPO','C':'CODIGO','D':'NOMBRE'},'empresa','Configura códigos y nombres en Empresa / Clasificaciones SKU. Los catálogos nuevos están vacíos.'),'cajas':('Cajas PDV','CAJAS',{'A':'EMPRESA','B':'SUCURSAL','C':'CODIGO','D':'NOMBRE','E':'LISTA'},'expendios','Configura las cajas en PDV; selecciona sucursal y lista de precios de la empresa.')})
 
 def workbook(sheet,headers,rows=()):
  ns='http://schemas.openxmlformats.org/spreadsheetml/2006/main';out=io.BytesIO()
@@ -90,6 +99,8 @@ class CatalogLoads:
     result={'sku':result['resumen'],'materiales':linked}
    elif id in ('ventas','pdv'):
     require_module(actor,'ventas')
+    from ventas import TIP,CAT,SUB,PDV
+    if not TIP or not CAT or not SUB or id=='pdv' and not PDV:raise ValueError('Configura las clasificaciones SKU de Ventas y las agrupaciones PDV antes de cargar el archivo.')
     companies=data.get('empresas',[])
     if not isinstance(companies,list) or not companies:raise ValueError('Selecciona al menos una empresa destino.')
     for company in companies:self.cm.company(company,actor,True)
@@ -101,6 +112,7 @@ class CatalogLoads:
      if record['eliminado']:continue
      row={**record.get('camposExcel',{}),'A':record['sku'],'H':record['nombre'],'S':record['estado']}
      if not row['A']:raise ValueError('Completa la clasificación para generar todos los SKU de ventas.')
+     if any(record[key]=='00' for key in ('tipo','categoria','subcategoria')):raise ValueError('El archivo contiene clasificaciones sin configurar. Configura sus códigos o nombres antes de cargarlo.')
      if id=='pdv' and norm(row.get('W','')) not in ('EXPENDIOS','AMBOS'):raise ValueError('La carga PDV requiere CANAL EXPENDIOS o AMBOS en todas las filas.')
      rows.append(row)
     linked_content=base64.b64encode(workbook('SUGERIDO',SALES,rows)).decode()
@@ -109,11 +121,42 @@ class CatalogLoads:
     if result['totalPendientes']:raise ValueError('Completa impuestos, unidades y precios de todos los productos antes de aplicar la carga.')
     result['skuEnlazados']=len(rows)
    else:
-    rows,_=read_rows(raw,'INICIAL.xlsx',sheet_name=LAYOUTS[id][1]);result={'registros':0}
+    rows,_=read_rows(raw,'INICIAL.xlsx',sheet_name=LAYOUTS[id][1]);result={'registros':0};module=QUALITY[id];headers={norm(label):col for col,label in rows[0][1].items()};grouped={}
+    if 'CODIGO' not in headers or 'TITULO' not in headers:raise ValueError('Conserva los encabezados CODIGO y TITULO del layout.')
     for number,row in rows[1:]:
      if not any(str(v).strip() for v in row.values()):continue
-     try:values=json.loads(row.get('C','{}'))
-     except ValueError:raise ValueError('DATOS_JSON inválido en fila '+str(number))
-     self.quality.save({'modulo':QUALITY[id],'codigo':row.get('A'),'titulo':row.get('B'),'datos':values},actor);result['registros']+=1
+     def field(name):return str(row.get(headers.get(name,''),'')).strip()
+     code=field('CODIGO');title=field('TITULO')
+     if not code or not title:raise ValueError('Completa código y título en fila '+str(number))
+     if 'DATOS_JSON' in headers:
+      try:values=json.loads(field('DATOS_JSON') or '{}')
+      except ValueError:raise ValueError('Datos inválidos en fila '+str(number))
+     elif module=='records':
+      form=db.execute("SELECT id,payload FROM q_items WHERE module='forms' AND (code=? OR id=?) AND version=? AND state='APROBADO'",(field('FORMATO'),field('FORMATO'),int(field('VERSION') or '0'))).fetchone()
+      if not form:raise ValueError('Formato o versión aprobada no disponible en fila '+str(number))
+      schema=json.loads(form[1])['schema'];selected=next((f for f in schema if field('CAMPO') in (f['id'],f['label'])),None)
+      if not selected:raise ValueError('Campo del formato desconocido en fila '+str(number))
+      value=field('VALOR');kind=selected['type']
+      if kind=='casilla':
+       if norm(value) not in ('SI','NO','1','0','TRUE','FALSE'):raise ValueError('Captura SI o NO para la casilla.')
+       value=norm(value) in ('SI','1','TRUE')
+      elif kind=='multiple':value=[v.strip() for v in value.split(',') if v.strip()]
+      elif kind=='tabla':value=[[v.strip() for v in line.split('|')] for line in value.split(';') if line.strip()]
+      prior=grouped.setdefault(code,{'titulo':title,'datos':{'formato':form[0],'valores':{}}})
+      if prior['titulo']!=title or prior['datos']['formato']!=form[0] or selected['id'] in prior['datos']['valores']:raise ValueError('No mezcles títulos, formatos o campos repetidos en el mismo registro.')
+      prior['datos']['valores'][selected['id']]=value;continue
+     else:
+      values={key:field(key.upper()) for key in FIELDS[module]}
+      for key,target in [('auditoria','audits'),('no_conformidad','findings')]:
+       if values.get(key):
+        linked=db.execute('SELECT id FROM q_items WHERE module=? AND (id=? OR code=?) ORDER BY version DESC LIMIT 1',(target,values[key],values[key])).fetchone()
+        if not linked:raise ValueError('Referencia de calidad no disponible en fila '+str(number))
+        values[key]=linked[0]
+      if module=='forms':
+       prior=grouped.setdefault(code,{'titulo':title,'datos':{**values,'schema':[]}})
+       if prior['titulo']!=title:raise ValueError('Usa el mismo título en todas las filas del formato.')
+       prior['datos']['schema'].append({'id':field('CAMPO'),'label':field('ETIQUETA'),'type':field('TIPO'),'required':norm(field('OBLIGATORIO'))=='SI','options':[v.strip() for v in field('OPCIONES').split(',') if v.strip()],'section':field('SECCION') or 'Datos'});continue
+     self.quality.save({'modulo':module,'codigo':code,'titulo':title,'datos':values},actor);result['registros']+=1
+    for code,item in grouped.items():self.quality.save({'modulo':module,'codigo':code,**item},actor);result['registros']+=1
     if not result['registros']:raise ValueError('El layout no contiene registros.')
    return {'ok':True,'revisar':review,'huellaActual':fingerprint,'huellaArchivo':digest,'resultado':result}

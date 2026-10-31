@@ -46,10 +46,10 @@ def main():
   for path in (ROOT/'sku-servidor').glob('*.py'):shutil.copy2(path,server/path.name)
   shutil.copy2(ROOT/'sku-servidor/catalogos.json',server/'catalogos.json')
   shutil.copytree(ROOT/'sku-servidor/public',server/'public',ignore=shutil.ignore_patterns('logo.png'))
-  shutil.copy2(ROOT/'sku/SKU-JAD-Servidor.spec',clean/'sku/SKU-JAD-Servidor.spec')
+  shutil.copy2(ROOT/'sku/ERP_JM_Lite.spec',clean/'sku/ERP_JM_Lite.spec')
   initializer=runpy.run_path(str(ROOT/'tools/inicializar.py'))
   initializer['create_initials'](server,secrets.token_urlsafe(32));(server/'initial-admin.json').unlink()
-  subprocess.run([sys.executable,'-m','PyInstaller','--noconfirm','sku/SKU-JAD-Servidor.spec','--distpath',str(target),'--workpath',str(clean/'build')],cwd=clean,check=True)
+  subprocess.run([sys.executable,'-m','PyInstaller','--noconfirm','sku/ERP_JM_Lite.spec','--distpath',str(target),'--workpath',str(clean/'build')],cwd=clean,check=True)
  shutil.copy2(args.vc_redist,target/'VC_redist.x64.exe')
  
  for script in ('install_windows.ps1','verify_windows.ps1'):shutil.copy2(ROOT/'tools'/script,target/script)

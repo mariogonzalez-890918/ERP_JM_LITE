@@ -41,7 +41,7 @@ Selector de aplicaciones ERP JM Lite
 └─ Administración → Usuarios · Accesos por perfil · Razones sociales [nuevo] · Respaldos
 ```
 
-La organización de Expendios adapta los menús comunes de TPV 14 y su dashboard [O4–O6](FUENTES.md). **Punto de Venta no será una aplicación separada fuera de Expendios.** “Importar maestro”, “Cargar layout”, la entrada explícita a caja y el dashboard comercial son adaptaciones GMP. Equipos de ventas, variantes, facturación y otros menús de Odoo no se mostrarán como funcionalidades disponibles sin implementación y autorización de alcance.
+La organización de Expendios adapta los menús comunes de TPV 14 y su dashboard [O4–O6](FUENTES.md). **Punto de Venta no será una aplicación separada fuera de Expendios.** “Importar maestro”, “Cargar layout”, la entrada explícita a caja y el dashboard comercial son adaptaciones JM. Equipos de ventas, variantes, facturación y otros menús de Odoo no se mostrarán como funcionalidades disponibles sin implementación y autorización de alcance.
 
 ### Composición visual
 
@@ -75,7 +75,7 @@ Los valores anteriores son **defaults propuestos**, no altas de cuentas. Los mó
 
 ## 4. Presupuestos y pedidos
 
-Las plantillas reutilizables siguen el concepto de Odoo 14 [O2](FUENTES.md), con condiciones GMP propias.
+Las plantillas reutilizables siguen el concepto de Odoo 14 [O2](FUENTES.md), con condiciones JM propias.
 
 ```mermaid
 flowchart LR
@@ -96,7 +96,7 @@ Un pedido cobrado en Expendios se vincula al ticket y al saldo pendiente. No se 
 
 ## 5. Precios
 
-Odoo 14 proporciona listas y reglas de precios por segmentos/clientes [O3](FUENTES.md). Para GMP se propone un motor compartido por VentasIns y Expendios:
+Odoo 14 proporciona listas y reglas de precios por segmentos/clientes [O3](FUENTES.md). Para JM se propone un motor compartido por VentasIns y Expendios:
 
 1. Validar que la lista pertenezca a la razón social activa y esté vigente y permitida para canal y sucursal/caja.
 2. Resolver lista explícita autorizada; si no, lista del cliente permitida; después lista predeterminada de la sucursal/canal. Si falta precio válido, bloquear confirmación/cobro y mostrar el motivo.
@@ -142,7 +142,7 @@ Filtros y detalle: período → razón social → canal → sucursal → vendedo
 
 ## 8. Formatos de impresión
 
-**Documento comercial, composición Odoo 14 [O7](FUENTES.md):** logo GMP, empresa, cliente/direcciones, título Presupuesto/Pedido y folio, fecha y vigencia, vendedor, referencia, tabla SKU/descripción/cantidad/unidad/precio/descuento/importes, subtotal, impuestos, total, condiciones y aceptación/firma. Carta propuesta y A4 alternativo. Encabezados de tabla repetidos, folios de página y términos después de las líneas. Plantilla versionada; las reimpresiones conservan datos y condiciones históricos.
+**Documento comercial, composición Odoo 14 [O7](FUENTES.md):** logo JM, empresa, cliente/direcciones, título Presupuesto/Pedido y folio, fecha y vigencia, vendedor, referencia, tabla SKU/descripción/cantidad/unidad/precio/descuento/importes, subtotal, impuestos, total, condiciones y aceptación/firma. Carta propuesta y A4 alternativo. Encabezados de tabla repetidos, folios de página y términos después de las líneas. Plantilla versionada; las reimpresiones conservan datos y condiciones históricos.
 
 **Ticket Bixolon:** rollo de 80 mm y contenido de 72 mm, reutilizando la estrategia de impresión existente. Empresa, sucursal/caja/cajero, folio/fecha, cliente si aplica, SKU y descripción legibles, cantidad/unidad/precio, descuentos, total, forma de pago, recibido y cambio, referencias a pedido y pie. En presupuesto se rotula PRESUPUESTO, sin afirmar pago; en venta se identifica el cobro. Firmas solo donde el documento comercial lo requiera, al final.
 

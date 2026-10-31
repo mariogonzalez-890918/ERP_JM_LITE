@@ -141,4 +141,4 @@ class QualityLite:
   for item in items:
    values={f['label']:item['datos']['valores'].get(f['id'],'') for f in item['datos'].get('schema',[])} if item['modulo']=='records' else {k.replace('_',' ').capitalize():v for k,v in item['datos'].items() if k!='schema'}
    rows.append([item['codigo'],item['titulo'],item['version'],item['estado'],item['actualizado'],*[str(values.get(f,'')) for f in fields]])
-  return (report_pdf(rows,'QualityLite · '+MODULES[query.get('modulo','documents')]),'application/pdf') if pdf else (report_xlsx(rows,'CALIDAD'),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  return (report_pdf(rows,'QualityLite · '+MODULES[query.get('modulo','documents')],subtitle='Reporte según filtros de calidad. Se conserva la versión y estado de cada registro.'),'application/pdf') if pdf else (report_xlsx(rows,'CALIDAD'),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')

@@ -71,7 +71,7 @@ sin cambiar los folios ni los datos de las solicitudes ya emitidas.
 
 GENERADOR DE SKU JM - WINDOWS DE 64 BITS
 
-1. Copia la carpeta a una ruta fija del servidor, por ejemplo C:\SKU-JAD.
+1. Copia la carpeta a una ruta fija del servidor, por ejemplo C:\ERP-JM-Lite.
 2. Abre ERP_JM_Lite.exe. No necesitas instalar Python.
 3. Inicia sesión con mario.gonzalez@jad-ayt.com y la contraseña que configuraste.
 4. Ejecuta ABRIR-PUERTO.bat y acepta la solicitud de administrador de Windows.
@@ -201,10 +201,10 @@ Se registran como SOLICITADA; no se registra automáticamente una entrega ni
 se descuentan existencias. Se admiten hasta 200 partidas por solicitud.
 
 SERIES INICIALES
-EJIDOS: REQ-EJI-000001
-SAN PABLO: REQ-SP-000001
-CUAUTITLAN: REQ-CUA-000001
-EJE 8: REQ-E8-000001
+CENTRAL: REQ-EJI-000001
+NORTE: REQ-SP-000001
+SUR: REQ-CUA-000001
+ORIENTE: REQ-E8-000001
 Cada sucursal tiene un consecutivo independiente. Dos usuarios no pueden
 recibir el mismo folio y reintentar un envío no genera otra solicitud.
 El folio mostrado en el formulario es una vista previa; al emitir se asigna
@@ -231,7 +231,7 @@ Superadministrador: solicitudes, maestros, series y folios.
 Compras y alta de productos: solicitudes y carga de maestros.
 Ventas: emitir y consultar solicitudes, sin cargar maestros ni configurar.
 Visualizador: consulta y descarga, sin emitir ni configurar.
-Gerente: consulta requisiciones de EJIDOS, SAN PABLO, CUAUTITLAN y EJE 8.
+Gerente: consulta requisiciones de CENTRAL, NORTE, SUR y ORIENTE.
 Puede crear y editar reportes, impuestos, costos y equivalencias del reporte.
 No modifica requisiciones emitidas ni administra usuarios o respaldos.
 Almacenista: solo consulta de requisiciones en los almacenes que seleccione

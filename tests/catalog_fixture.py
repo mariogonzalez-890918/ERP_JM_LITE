@@ -4,7 +4,10 @@ SALES={'TIP': {'PP': 'PRODUCTO EN PROCESO', 'PT': 'PRODUCTO TERMINADO'}, 'CAT': 
 
 def install(store):
  with store.connect() as db:
+  for name,series in [('CENTRAL','REQ-CEN'),('NORTE','REQ-NOR'),('SUR','REQ-SUR'),('ORIENTE','REQ-ORI')]:db.execute('INSERT OR IGNORE INTO app_branches VALUES(?,?,1)',(name,series))
   for scope,groups in [('compras',PURCHASE),('ventas',SALES)]:
    for kind,values in groups.items():
     for code,label in values.items():db.execute('INSERT OR IGNORE INTO sku_taxonomy VALUES(?,?,?,?,1)',(scope,kind,code,label))
  store.taxonomy.reload()
+ from sucursales import load_branches
+ load_branches(store)

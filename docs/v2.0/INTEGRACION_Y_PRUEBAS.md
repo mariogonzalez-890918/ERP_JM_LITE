@@ -87,7 +87,7 @@ Se agrega un [presupuesto preliminar de 200–320 horas efectivas](ESTIMACION.md
 | IVA | Probar 0/8/16 % mixtos, precios incluidos/excluidos y descuentos: base 300.00 + IVA 24.00 = total 324.00 en el caso de prueba. |
 | Folios y cancelación | Inicio institucional elegido, folio interno y solicitud en Expendios; AUXTI/Superadministrador autorizan, Gerencia no; preservar caja hasta registrar devolución real. |
 | Clientes y exportación | Alta y direcciones por cartera/emisor; seleccionar columnas, guardar plantillas y exportar todas las filas del filtro sin recuperar accesos revocados. |
-| Alcances | Un usuario de EJIDOS no ve ni opera cajas/tickets de SAN PABLO. Un VentasIns no accede a documentos de otra cartera mediante IDs o exportaciones. Requisición no obtiene costos comerciales. |
+| Alcances | Un usuario de CENTRAL no ve ni opera cajas/tickets de NORTE. Un VentasIns no accede a documentos de otra cartera mediante IDs o exportaciones. Requisición no obtiene costos comerciales. |
 | Precios | Mismo SKU con precio distinto por canal/sucursal/cliente/vigencia; servidor selecciona regla; cambio de precio no modifica un ticket histórico. Precio faltante bloquea cobro. |
 | Importación | SKU con ceros intactos, duplicados/ambigüedades detectados, vista previa obligatoria, cambios concurrentes rechazados y ningún borrado por omisión de filas. |
 | Cobro | Doble clic, dos pestañas y reintento tras pérdida de respuesta producen un solo cobro/folio. Un fallo al imprimir permite reimprimir sin cobrar de nuevo. |

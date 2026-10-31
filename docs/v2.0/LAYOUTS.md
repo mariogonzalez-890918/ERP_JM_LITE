@@ -33,7 +33,7 @@ Ejemplo **ficticio**: `PTPB07BOL0000A`, BOLILLO DEMO, PT, PB, 07, A11, PIEZA, c�
 | --- | --- |
 | LISTA_CLAVE / NOMBRE_LISTA | Identidad estable y nombre legible. |
 | CANAL | VENTASINS o EXPENDIOS. Una lista compartida se asigna explícitamente a ambos; no se comparte por coincidencia de nombre. |
-| SUCURSAL | EJIDOS, SAN PABLO, CUAUTITLAN o EJE 8; permitir generalidad solo mediante opción explícita del layout. |
+| SUCURSAL | CENTRAL, NORTE, SUR o ORIENTE; permitir generalidad solo mediante opción explícita del layout. |
 | CLIENTE_CLAVE | Opcional; referencia a cliente existente. |
 | SKU / UNIDAD_VENTA | Producto y presentación exactos. |
 | CANTIDAD_MINIMA / CANTIDAD_MAXIMA | Rango de tramo; máximo vacío significa sin tope. Rechazar solapamientos de igual prioridad. |

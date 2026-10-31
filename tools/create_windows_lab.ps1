@@ -4,6 +4,8 @@ param(
  [Parameter(Mandatory=$true)][string]$Iso,
  [Parameter(Mandatory=$true)][string]$Package,
  [Parameter(Mandatory=$true)][string]$AdminSeed,
+ [string]$Wim,
+ [string]$ActivationVerifier,
  [string]$LabRoot=(Join-Path $env:LOCALAPPDATA 'ERP-JM-Lite-Lab'),
  [string]$VmName='ERP-JM-Lite-Win11-Lab',
  [int]$Port=8090
@@ -22,11 +24,15 @@ try {
  $ownerSid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
  & icacls.exe $vmFolder /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' ("*"+$ownerSid+':(OI)(CI)F') | Out-Null
  if($LASTEXITCODE -ne 0) { throw 'No se pudo proteger el laboratorio.' }
- $image=Mount-DiskImage -ImagePath (Resolve-Path -LiteralPath $Iso).Path -PassThru
- $isoMounted=$true
- $isoVolume=$image | Get-Volume
- $imageFile=Join-Path ($isoVolume.DriveLetter+':\') 'sources\install.wim'
- if(-not(Test-Path -LiteralPath $imageFile)) { $imageFile=Join-Path ($isoVolume.DriveLetter+':\') 'sources\install.esd' }
+ if($Wim) {
+  $imageFile=(Resolve-Path -LiteralPath $Wim).Path
+ } else {
+  $image=Mount-DiskImage -ImagePath (Resolve-Path -LiteralPath $Iso).Path -PassThru
+  $isoMounted=$true
+  $isoVolume=$image | Get-Volume
+  $imageFile=Join-Path ($isoVolume.DriveLetter+':\') 'sources\install.wim'
+  if(-not(Test-Path -LiteralPath $imageFile)) { $imageFile=Join-Path ($isoVolume.DriveLetter+':\') 'sources\install.esd' }
+ }
  $windowsImages=Get-WindowsImage -ImagePath $imageFile
  $windowsImage=$windowsImages | Where-Object {$_.ImageName -match 'Enterprise' -and $_.ImageName -notmatch ' N '} | Select-Object -First 1
  if(-not $windowsImage) { throw 'La ISO no contiene la edicion Enterprise de evaluacion esperada.' }
@@ -63,8 +69,9 @@ try {
  $guestPackage=$osRoot+'ERP-JM-Lite-Package'
  Copy-Item -LiteralPath $Package -Destination $guestPackage -Recurse
  Copy-Item -LiteralPath $AdminSeed -Destination ($osRoot+'admin-seed.json')
+ if($ActivationVerifier) { Copy-Item -LiteralPath $ActivationVerifier -Destination ($osRoot+'activation-verifier.json') }
  Dismount-VHD -Path $vhdPath;$vhdMounted=$false
- Dismount-DiskImage -ImagePath (Resolve-Path -LiteralPath $Iso).Path;$isoMounted=$false
+ if($isoMounted) { Dismount-DiskImage -ImagePath (Resolve-Path -LiteralPath $Iso).Path;$isoMounted=$false }
  $switchName='ERP-JM-Lite-Lab-Internal'
  $switch=Get-VMSwitch -Name $switchName -ErrorAction SilentlyContinue
  if($switch -and $switch.SwitchType -ne 'Internal') { throw 'El switch existente no es interno.' }
@@ -93,9 +100,12 @@ try {
    $nic=Get-NetAdapter | Where-Object {$_.Status -eq 'Up'} | Select-Object -First 1
    New-NetIPAddress -InterfaceIndex $nic.ifIndex -IPAddress '192.168.241.2' -PrefixLength 24 | Out-Null
    Get-NetConnectionProfile | Set-NetConnectionProfile -NetworkCategory Private
-   & powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\ERP-JM-Lite-Package\install_windows.ps1' -Port $webPort -AdminSeed 'C:\admin-seed.json' -OpenFirewall
+   $arguments=@('-NoProfile','-ExecutionPolicy','Bypass','-File','C:\ERP-JM-Lite-Package\install_windows.ps1','-Port',$webPort,'-AdminSeed','C:\admin-seed.json','-OpenFirewall')
+   if(Test-Path -LiteralPath 'C:\activation-verifier.json') { $arguments+=@('-ActivationVerifier','C:\activation-verifier.json') }
+   & powershell.exe @arguments
    if($LASTEXITCODE -ne 0) { throw 'El instalador fallo dentro de Windows.' }
    Remove-Item -LiteralPath 'C:\admin-seed.json' -Force
+   if(Test-Path -LiteralPath 'C:\activation-verifier.json') { Remove-Item -LiteralPath 'C:\activation-verifier.json' -Force }
    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\ERP-JM-Lite-Package\verify_windows.ps1' -BeforeReboot
    if($LASTEXITCODE -ne 0) { throw 'Fallo la verificacion previa al reinicio.' }
   } | Out-File -LiteralPath (Join-Path $vmFolder 'before-reboot.log') -Encoding UTF8

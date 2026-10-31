@@ -6,7 +6,7 @@ Versión 2.1.0 para instalar en el servidor. El proceso de compilación no susti
 
 ## Razones sociales y sucursales
 
-En el módulo comercial, **Configuración → Razones sociales** permite agregar tantas razones sociales como se requieran, editar sus datos y eliminarlas. Cada una se vincula explícitamente con una o varias de **EJIDOS, SAN PABLO, CUAUTITLAN y EJE 8**. **Solo Superadministrador y AUXTI** pueden realizar estas operaciones. Gerente y operadores no pueden hacerlo aunque modifiquen una petición HTTP.
+En el módulo comercial, **Configuración → Razones sociales** permite agregar tantas razones sociales como se requieran, editar sus datos y eliminarlas. Cada una se vincula explícitamente con una o varias de **CENTRAL, NORTE, SUR y ORIENTE**. **Solo Superadministrador y AUXTI** pueden realizar estas operaciones. Gerente y operadores no pueden hacerlo aunque modifiquen una petición HTTP.
 
 En **Configuración → Expendios y sucursales** se muestran siempre esas cuatro sucursales y se seleccionan sus razones sociales. En TPV se elige primero el expendio, después una razón social vinculada y finalmente su caja. Se respetan además los permisos de empresas, sucursales y cajas del usuario. No se asigna una empresa automáticamente a las cuatro sucursales.
 

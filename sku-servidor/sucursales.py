@@ -1,6 +1,6 @@
 """Sucursales comerciales persistentes; sin nombres de la empresa de origen."""
 import re
-DEFAULT_BRANCHES={'CENTRAL':'REQ-CEN','NORTE':'REQ-NOR','SUR':'REQ-SUR','ORIENTE':'REQ-ORI'}
+DEFAULT_BRANCHES={}
 BRANCHES=dict(DEFAULT_BRANCHES)
 
 def load_branches(store):

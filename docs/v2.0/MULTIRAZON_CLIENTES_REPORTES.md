@@ -8,7 +8,7 @@ Requisitos incorporados el **28 de octubre de 2026**. Este documento amplía el 
 
 Se contemplan **tres razones sociales emisoras**, válidas tanto en pedidos institucionales como en Expendios. En Configuración → Razones sociales se presentan tres espacios sin datos empresariales precargados. El usuario llena denominación, nombre comercial, RFC si corresponde a su configuración, domicilio, contacto, moneda, logo y textos de impresión. Superadministrador captura/autoriza inicialmente esos datos; su administración podrá asignarse como capacidad separada, sin conceder gestión de perfiles.
 
-**Razón social emisora, empresa cliente, sucursal y caja son entidades diferentes.** EJIDOS, SAN PABLO, CUAUTITLAN y EJE 8 siguen siendo ubicaciones. Una ubicación puede operar para más de una razón social mediante cajas separadas. No se identifica una empresa por la sucursal ni por el módulo de producto A01–A22.
+**Razón social emisora, empresa cliente, sucursal y caja son entidades diferentes.** CENTRAL, NORTE, SUR y ORIENTE siguen siendo ubicaciones. Una ubicación puede operar para más de una razón social mediante cajas separadas. No se identifica una empresa por la sucursal ni por el módulo de producto A01–A22.
 
 | Elemento | Regla de separación propuesta |
 | --- | --- |

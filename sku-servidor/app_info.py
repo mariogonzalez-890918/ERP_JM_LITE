@@ -1,3 +1,5 @@
 TITLE='ERP JM Lite'
 VERSION='0.1.0-dev'
-SUPPORT_LINE='aplicación soportada y gestionada por Ing. Mario González, sistemas@grupomipan.com 2026'
+SUPPORT_LINE='Mario González · mario.gonzalez@jad-ayt.com'
+ADMIN_EMAIL='mario.gonzalez@jad-ayt.com'
+ADMIN_NAME='Mario González'

@@ -72,8 +72,8 @@ sin cambiar los folios ni los datos de las solicitudes ya emitidas.
 GENERADOR DE SKU GMP - WINDOWS DE 64 BITS
 
 1. Copia la carpeta a una ruta fija del servidor, por ejemplo C:\SKU-JAD.
-2. Abre SKU-JAD-Servidor.exe. No necesitas instalar Python.
-3. Inicia sesión con sistemas@grupomipan.com y la contraseña que configuraste.
+2. Abre ERP_JM_Lite.exe. No necesitas instalar Python.
+3. Inicia sesión con mario.gonzalez@jad-ayt.com y la contraseña que configuraste.
 4. Ejecuta ABRIR-PUERTO.bat y acepta la solicitud de administrador de Windows.
 5. Desde otra computadora abre http://IP-DEL-SERVIDOR:8080
    Usa la IP local, la de Radmin VPN o la de ZeroTier, según tu conexión.
@@ -93,7 +93,7 @@ Las cargas de maestros agregan artículos sin sobrescribir los existentes.
 Para que arranque al encender Windows:
 Ejecuta INSTALAR-INICIO-AUTOMATICO.bat, acepta el permiso de administrador,
 cierra la ventana manual y reinicia el servidor. También puedes arrancar
-la tarea SKU-JAD-Servidor desde el Programador de tareas.
+la tarea ERP-JM-Lite desde el Programador de tareas.
 
 La carpeta data y config.json se crean JUNTO al EXE, fuera de sus archivos
 temporales. Guarda respaldos de esos archivos; al actualizar el EXE,
@@ -252,7 +252,7 @@ ASIGNAR ALMACENES A UN USUARIO
 Para GERENTE, las cuatro sucursales se asignan automáticamente.
 
 ACTUALIZAR EL SERVIDOR
-Detén la ventana o tarea SKU-JAD-Servidor. Respalda data con la aplicación
+Detén la ventana o tarea ERP-JM-Lite. Respalda data con la aplicación
 detenida. Sustituye el EXE en su misma carpeta y conserva data y config.json.
 Al iniciar se agregan las tablas de requisiciones sin reemplazar los catálogos,
 usuarios ni contraseñas existentes. No copies carpetas de pruebas al servidor.

@@ -41,6 +41,7 @@ class CommercialStore:
     CREATE TABLE IF NOT EXISTS cm_products(sku TEXT PRIMARY KEY,payload TEXT NOT NULL,revision INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS cm_prices(company INTEGER NOT NULL,list TEXT NOT NULL,sku TEXT NOT NULL,customer TEXT NOT NULL,revision INTEGER NOT NULL,payload TEXT NOT NULL,PRIMARY KEY(company,list,sku,customer));
     CREATE TABLE IF NOT EXISTS cm_customers(id TEXT PRIMARY KEY,company INTEGER NOT NULL,code TEXT NOT NULL,creator TEXT NOT NULL,revision INTEGER NOT NULL,payload TEXT NOT NULL,UNIQUE(company,code));
+    CREATE TABLE IF NOT EXISTS cm_customer_assignments(customer TEXT PRIMARY KEY,seller TEXT NOT NULL,revision INTEGER NOT NULL,actor TEXT NOT NULL,created TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS cm_templates(id TEXT PRIMARY KEY,company INTEGER NOT NULL,creator TEXT NOT NULL,revision INTEGER NOT NULL,payload TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS cm_reports(id TEXT PRIMARY KEY,company INTEGER NOT NULL,channel TEXT NOT NULL,creator TEXT NOT NULL,revision INTEGER NOT NULL,payload TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS cm_boxes(id TEXT PRIMARY KEY,company INTEGER NOT NULL,branch TEXT NOT NULL,code TEXT NOT NULL,revision INTEGER NOT NULL,payload TEXT NOT NULL,UNIQUE(company,code));
@@ -190,8 +191,11 @@ class CommercialStore:
  def customers(self,company,actor,channel):
   self.module(actor,channel);self.company(company,actor)
   with self.store.connect() as db:rows=db.execute('SELECT id,revision,payload,creator FROM cm_customers WHERE company=? ORDER BY code',(company,)).fetchall()
-  return {'clientes':[{'id':id,'revision':rev,**json.loads(p)} for id,rev,p,creator in rows if channel in json.loads(p).get('canales',['ventasins','expendios'])]}
+  with self.store.connect() as db:return {'clientes':[{'id':id,'revision':rev,**json.loads(p)} for id,rev,p,creator in rows if channel in json.loads(p).get('canales',['ventasins','expendios']) and self.visible_customer(db,id,actor)]}
+ def visible_customer(self,db,id,actor):
+  return actor['role'] in ('superadmin','gerente') or bool(db.execute('SELECT 1 FROM cm_customer_assignments WHERE customer=? AND seller=?',(id,actor['email'])).fetchone())
  def save_customer(self,data,actor,channel):
+  if actor['role'] not in ('superadmin','gerente'):raise PermissionError('Solo Gerencia y Sistemas agregan o modifican clientes.')
   self.action(actor,channel,'clientes');company=data.get('empresa');self.company(company,actor,True)
   name=text(data.get('nombre',''),200);code=text(data.get('codigo',''),50).upper();id=data.get('id');rev=data.get('revision',0)
   if not name:raise ValueError('Indica el nombre del cliente. Su código se asigna automáticamente.')
@@ -230,6 +234,7 @@ class CommercialStore:
   if not id:return None
   row=db.execute('SELECT payload,company,creator FROM cm_customers WHERE id=?',(id,)).fetchone()
   if not row or row[1]!=company:raise PermissionError('Cliente no disponible en esta razón social.')
+  if not self.visible_customer(db,id,actor):raise PermissionError('El cliente no está asignado a tu cartera.')
   value=json.loads(row[0])
   if channel not in value.get('canales',['ventasins','expendios']):raise ValueError('El cliente no está habilitado para este canal.')
   if not value.get('activo'):raise ValueError('Cliente inactivo.')
@@ -253,7 +258,7 @@ class CommercialStore:
  def templates(self,company,actor):
   self.module(actor,'ventasins');self.company(company,actor)
   with self.store.connect() as db:rows=db.execute('SELECT id,creator,revision,payload FROM cm_templates WHERE company=?',(company,)).fetchall()
-  return {'plantillas':[{'id':id,'revision':rev,**json.loads(p)} for id,creator,rev,p in rows if actor['role'] in SUPERVISORS|{'ventasins'} or creator==actor['email']]}
+  with self.store.connect() as db:return {'plantillas':[{'id':id,'revision':rev,**json.loads(p)} for id,creator,rev,p in rows if (actor['role'] in ('superadmin','gerente') or creator==actor['email']) and (not json.loads(p).get('cliente') or self.visible_customer(db,json.loads(p)['cliente'],actor))]}
  def save_template(self,data,actor):
   self.module(actor,'ventasins')
   if actor['role'] not in ADMINS|{'gerente'}:raise PermissionError('Solo Gerencia, AUXTI y Superadministrador administran plantillas.')
@@ -404,7 +409,8 @@ class CommercialStore:
   if channel=='ventasins':value.setdefault('bloqueado',value.get('tipo')=='PEDIDO')
   if channel=='expendios':
    box=self.box(db,row[3],row[0],actor);value.setdefault('cajaNombre',box['nombre']);value.setdefault('cajaCodigo',box['codigo'])
-  if actor['role'] not in SUPERVISORS and row[2]!=actor['email']:raise PermissionError('Solo puedes consultar tus documentos.')
+  customer=(value.get('cliente') or {}).get('id')
+  if actor['role'] not in ('superadmin','gerente') and ((customer and not self.visible_customer(db,customer,actor)) or (not customer and row[2]!=actor['email'])):raise PermissionError('El documento no pertenece a tu cartera.')
   return {'id':id,'revision':row[4],**value}
  def get_document(self,id,actor,channel):
   with self.store.connect() as db:return self.document(db,id,actor,channel)

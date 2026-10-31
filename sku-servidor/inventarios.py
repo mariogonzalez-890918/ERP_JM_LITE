@@ -84,7 +84,7 @@ CREATE TRIGGER IF NOT EXISTS inv_ledger_no_delete BEFORE DELETE ON inv_ledger BE
  def materials(self):
   # Catálogo central, no depende del acceso del actor a la pantalla de Compras.
   mods=['pedidoscompra']
-  rows=self.po.materials({'role':'superadmin','email':'sistemas@grupomipan.com','modulos':mods})['materiales'];result={}
+  rows=self.po.materials({'role':'superadmin','email':'mario.gonzalez@jad-ayt.com','modulos':mods})['materiales'];result={}
   for m in rows:
    if not m.get('activo') or not m['sku']:continue
    sku=m['sku'].upper()

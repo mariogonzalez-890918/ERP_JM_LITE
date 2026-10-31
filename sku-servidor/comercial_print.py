@@ -8,7 +8,7 @@ def esc(v):return html.escape(str(v),quote=True)
 
 def document_html(doc,channel,formato=""):
  if formato not in ("","a4","ticket"):raise ValueError("Formato de impresión inválido.")
- ticket=channel=='expendios' or formato=='ticket';settings=doc.get('ticket',{});logo='<img src="/logo.png" alt="Mi Pan" class="logo">'
+ ticket=channel=='expendios' or formato=='ticket';settings=doc.get('ticket',{});logo='<img src="/logo.svg" alt="ERP JM Lite" class="logo">'
  if channel=='expendios':
   header=(logo if settings.get('mostrarLogo',True) else '')+('<h2>'+esc(doc['sucursal'])+'</h2>' if settings.get('mostrarSucursal',True) else '')
   subtitle='Ticket '+esc(doc['folio'])+'<br>Folio interno '+esc(doc['folioInterno'])

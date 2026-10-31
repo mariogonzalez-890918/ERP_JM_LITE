@@ -16,6 +16,7 @@
 !/sku/ui.js
 !/sku/xlsx-browser.js
 !/sku/erp.css
+!/sku/enterprise.css
 !/sku/modern.css
 !/sku/login-theme.css
 !/sku/*-panel.html
@@ -36,9 +37,14 @@
 !/sku-servidor/public/index.html
 !/sku-servidor/public/login.html
 !/sku-servidor/public/logo.png
+!/sku-servidor/public/logo.svg
 /tools/*
 !/tools/inicializar.py
 !/tools/build_public.py
+!/tools/install_windows.ps1
+!/tools/create_windows_lab.ps1
+!/tools/verify_windows.ps1
+!/tests/test_commercial_install.py
 /tests/*
 !/tests/test_public_source.py
 !/tests/test_backup_import.py
@@ -122,3 +128,16 @@
 !/tools/test_all.py
 
 !/ORIGEN.md
+!/tests/test_commercial_install.py
+!/tests/test_enterprise.py
+!/tests/test_quality_lite.py
+!/tests/test_catalog_loads.py
+!/sku-servidor/public/enterprise.html
+!/sku-servidor/public/enterprise.js
+!/sku-servidor/public/quality.html
+!/sku-servidor/public/quality.js
+!/sku/enterprise-panel.html
+!/sku/quality-panel.html
+!/docs/COMERCIALIZACION.md
+!/docs/EDICION_COMERCIAL.md
+!/docs/COMERCIALIZACION.md

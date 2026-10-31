@@ -82,7 +82,7 @@ class InventoryTests(purchase_fixture.PurchaseV3Tests):
  def test_regularize_legacy_fulfilled_requisition_once_with_authorization(self):
   req=self.create_req('1')
   with self.store.connect() as db:
-   doc=json.loads(db.execute('SELECT payload FROM req_documents WHERE id=?',(req['id'],)).fetchone()[0]);doc.update({'estado':'SURTIDO','revision':2,'surtido':{'fecha':'2026-10-28T23:49:11-06:00','registradoPor':'sistemas@grupomipan.com'}});doc['partidas'][0]['cantidadSurtida']='1';db.execute('UPDATE req_documents SET payload=? WHERE id=?',(json.dumps(doc),req['id']))
+   doc=json.loads(db.execute('SELECT payload FROM req_documents WHERE id=?',(req['id'],)).fetchone()[0]);doc.update({'estado':'SURTIDO','revision':2,'surtido':{'fecha':'2026-10-28T23:49:11-06:00','registradoPor':'mario.gonzalez@jad-ayt.com'}});doc['partidas'][0]['cantidadSurtida']='1';db.execute('UPDATE req_documents SET payload=? WHERE id=?',(json.dumps(doc),req['id']))
   missing=self.inv('requisiciones-sin-salida?almacen='+self.w)['requisiciones'];self.assertEqual(missing[0]['folio'],req['numero']);data={'almacen':self.w,'id':req['id'],'revision':2,'motivo':'Integrar salida autorizada faltante','clave':uuid.uuid4().hex};self.assertEqual(self.call('/api/inventarios/regularizar-surtido',data)[0],400);self.inv('regularizar-surtido',{**data,'autorizarNegativo':True});self.inv('regularizar-surtido',{**data,'autorizarNegativo':True});self.assertEqual(self.amount(),'-1');self.assertEqual(self.inv('requisiciones-sin-salida?almacen='+self.w)['requisiciones'],[])
 
  def test_kardex_print_pdf_xml_filters_and_cost_permissions(self):

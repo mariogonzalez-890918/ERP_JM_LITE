@@ -144,7 +144,7 @@ class WorkflowStore:
     # No aprobar propuestas de cuentas inactivas, sin módulo o sin el almacén asignado.
     user=db.execute('SELECT role,active FROM users WHERE email=?',(c['solicitadoPor'],)).fetchone()
     if c.get('requiereSistemas') and c['tipo']!='cancelar':
-     if actor['email']!='sistemas@grupomipan.com':raise PermissionError('Solo sistemas@grupomipan.com puede aprobar eliminaciones de AUXTI.')
+     if actor['email']!='mario.gonzalez@jad-ayt.com':raise PermissionError('Solo mario.gonzalez@jad-ayt.com puede aprobar eliminaciones de AUXTI.')
      if not user or not user[1] or user[0]!='auxti':raise Conflict('El solicitante ya no es AUXTI activo. Rechaza la propuesta.')
      modules=db.execute('SELECT modules FROM role_modules WHERE role=?',('auxti',)).fetchone()
      if not modules or 'requisiciones' not in json.loads(modules[0]):raise Conflict('AUXTI perdió acceso al módulo. Rechaza la propuesta.')

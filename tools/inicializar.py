@@ -30,7 +30,7 @@ def create_initials(directory,password):
 def main():
  parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--output-dir',type=pathlib.Path,default=ROOT/'sku-servidor');args=parser.parse_args()
  if any((args.output_dir/name).exists() for name in ['initial.json','initial-admin.json','initial-ventas.json','initial-requisiciones.json']):parser.error('Esta instalación ya tiene archivos iniciales. No se sobrescribirá ninguno.')
- password=getpass.getpass('Contraseña nueva para sistemas@grupomipan.com (mínimo 4 caracteres): ')
+ password=getpass.getpass('Contraseña nueva para mario.gonzalez@jad-ayt.com (mínimo 4 caracteres): ')
  if password!=getpass.getpass('Confirma la contraseña: '):parser.error('Las contraseñas no coinciden.')
  try:create_initials(args.output_dir,password)
  except ValueError as error:parser.error(str(error))

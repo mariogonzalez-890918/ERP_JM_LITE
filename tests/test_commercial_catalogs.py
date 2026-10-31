@@ -34,7 +34,7 @@ class CatalogTests(fixtures.ModuleBackupTests):
   for name in ('clientes','productos'):
    status,raw,_=self.call('/api/comercial/'+name+'/layout?canal=ventasins&empresa='+str(self.company));self.assertEqual(status,200);self.assertTrue(raw.startswith(b'PK'))
   raw=fixtures.workbook([{'A':SKU,'B':'PT','C':'PAN DULCE','D':'BIZCOCHO','G':'SI','H':'PRODUCTO INICIAL','I':'12','J':'11','K':'10','N':'8','O':'PIEZA','S':'ACTIVO','W':'EXPENDIOS'}],sheet='SUGERIDO',headers={**HEADERS,'W':'CANAL'})
-  config={'configuradoPor':'sistemas@grupomipan.com','maestroInicial':{'contenido':raw,'sha256':hashlib.sha256(base64.b64decode(raw)).hexdigest(),'empresas':[self.company]}}
+  config={'configuradoPor':'mario.gonzalez@jad-ayt.com','maestroInicial':{'contenido':raw,'sha256':hashlib.sha256(base64.b64decode(raw)).hexdigest(),'empresas':[self.company]}}
   with self.store.connect() as db:db.execute('UPDATE cm_source SET payload=? WHERE id=1',(json.dumps(config),))
   self.http.RequestHandlerClass.commercial.sync.apply_initial();self.assertEqual(self.cm('productos')['productos'],[]);self.assertEqual(len(self.cm('productos',channel='expendios')['productos']),1)
   with self.store.connect() as db:

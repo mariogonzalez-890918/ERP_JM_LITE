@@ -71,7 +71,7 @@ def report_pdf(r):
  from reportlab.lib.styles import ParagraphStyle
  from reportlab.platypus import SimpleDocTemplate,Paragraph,Spacer,LongTable,TableStyle,PageBreak,KeepTogether
  if len(r['detalle'])>10000:raise ValueError('Para PDF reduce los filtros a 10,000 partidas. Excel y CSV incluyen el detalle completo.')
- out=io.BytesIO();page=landscape(A4);doc=SimpleDocTemplate(out,pagesize=page,rightMargin=25,leftMargin=25,topMargin=28,bottomMargin=32,title=r['configuracion']['nombre'],author='Grupo Mi Pan')
+ out=io.BytesIO();page=landscape(A4);doc=SimpleDocTemplate(out,pagesize=page,rightMargin=25,leftMargin=25,topMargin=28,bottomMargin=32,title=r['configuracion']['nombre'],author='ERP JM Lite')
  normal=ParagraphStyle('GMP',fontName='Helvetica',fontSize=8,leading=11,spaceAfter=5)
  small=ParagraphStyle('Small',parent=normal,fontSize=7,leading=9,spaceAfter=0)
  heading=ParagraphStyle('Heading',parent=normal,fontSize=18,leading=22,textColor=colors.HexColor('#284e42'),spaceAfter=12)

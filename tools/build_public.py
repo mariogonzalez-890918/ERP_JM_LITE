@@ -1,39 +1,64 @@
-"""Compila una distribución pública con catálogos vacíos y sin credenciales incorporadas."""
-import argparse,pathlib,runpy,secrets,shutil,subprocess,sys,tempfile,zipfile
+"""Construir paquete Windows x64 moderno sin datos ni credenciales incorporadas."""
+import argparse,hashlib,json,pathlib,runpy,secrets,shutil,subprocess,sys,tempfile,zipfile
 ROOT=pathlib.Path(__file__).resolve().parent.parent
-SERVER_FILES=('inventarios_documentos.py','inventarios_operaciones.py','inventarios.py','inventarios_routes.py','plantillas_import.py','pedidos_compra.py','pedidos_compra_routes.py','pedidos_compra_vendors.py','pedidos_compra_output.py','precios_masivos.py','fechas.py','productos_comerciales.py','clientes_comerciales.py','respaldo_comercial.py','comercial.py','comercial_routes.py','comercial_print.py','comercial_sync.py','maestro_comercial.py','server.py','ventas.py','requisiciones.py','permissions.py','reportes.py','reporte_export.py','autorizaciones.py','compras.py','respaldos.py','app_info.py','imagenes.py','aprobaciones_admin.py','areas.py','ticket.py','catalogos.json')
-GUIDE='''ERP JM Lite v0.1.0-dev - DISTRIBUCIÓN PÚBLICA
+GUIDE='''ERP JM Lite 0.1.0-dev - paquete piloto Windows x64
 
-1. Extrae el ZIP en una carpeta fija, por ejemplo C:\\ERP-JM-Lite.
-2. Ejecuta ERP_JM_Lite.exe. No necesitas instalar Python.
-3. En una instalación nueva, la consola solicitará definir y confirmar una
-   contraseña para sistemas@grupomipan.com. No existe contraseña predeterminada.
-4. Abre http://127.0.0.1:8080. Desde tu red autorizada usa http://IP:8080.
-5. Carga tus maestros desde la aplicación. Esta distribución contiene catálogos
-   vacíos y no incluye información de productos de una empresa.
+Compatible objetivo: Windows 10/11 y Server 2016/2019/2022/2025 x64.
+Server 2012 R2 requiere una compilacion Legacy independiente; no esta certificada.
+No se ha certificado todavia este paquete en toda la matriz Windows.
 
-ACTUALIZAR UNA INSTALACIÓN EXISTENTE
-Detén el EXE anterior, respalda y conserva data y config.json y reemplaza
-el ejecutable. Se conservan los usuarios, sus contraseñas, los catálogos,
-las requisiciones, los reportes y los folios existentes.
+1. Extrae TODO el ZIP en una carpeta temporal local.
+2. Abre PowerShell como administrador en esa carpeta y ejecuta:
+   powershell -NoProfile -ExecutionPolicy Bypass -File .\\install_windows.ps1 -OpenFirewall
+3. Selecciona el puerto que asignara el servidor y define la clave de
+   mario.gonzalez@jad-ayt.com en la consola (entrada oculta).
+4. Abre http://NOMBRE-O-IP-DEL-SERVIDOR:PUERTO desde un navegador moderno.
 
-Antes de instalar el inicio automático, completa el primer inicio interactivo.
-El puerto 8080 debe estar permitido en el firewall de tu red local/VPN.
-Para exponer el servicio a Internet utiliza HTTPS y acceso restringido.
+El paquete incluye la aplicacion, Python/SQLite y sus dependencias nativas
+integrados en el EXE y Microsoft Visual C++ x64 firmado por Microsoft.
+No necesitas instalar Python, Node, Office ni SQLite en los equipos cliente.
+Se instala el programa en Program Files y los datos en ProgramData\\ERP JM Lite.
+La tarea ERP-JM-Lite arranca el servidor al encender Windows.
+El firewall opcional permite solo la subred local en perfiles Privado/Dominio.
+Para otras redes se debe configurar la regla segun el alcance autorizado.
+
+ACTUALIZAR: detener la tarea, respaldar ProgramData\\ERP JM Lite y volver a
+instalar conservando esa carpeta. Nunca se restablece la clave existente.
+DESINSTALAR: detener y eliminar la tarea ERP-JM-Lite y la regla de firewall
+ERP-JM-Lite-Web; retirar el programa. Conservar los datos y respaldos.
+No desinstalar los componentes C++ que pueden compartir otras aplicaciones.
+
+Paquete piloto, sin firma comercial propia. HTTPS, licenciamiento, configuracion
+por empresa y carga de 40-50 usuarios siguen pendientes de validacion.
 '''
+
 def main():
- parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--output-dir',type=pathlib.Path,default=ROOT/'dist-public');args=parser.parse_args();target=args.output_dir.resolve();target.mkdir(parents=True,exist_ok=True)
- with tempfile.TemporaryDirectory(prefix='gmp-public-') as folder:
+ parser=argparse.ArgumentParser(description=__doc__)
+ parser.add_argument('--output-dir',type=pathlib.Path,default=ROOT/'dist-public')
+ parser.add_argument('--vc-redist',type=pathlib.Path,required=True,help='Redistribuible x64 oficial de Microsoft para Windows moderno')
+ args=parser.parse_args()
+ if sys.platform!='win32' or sys.maxsize<=2**32:parser.error('Construye con Python Windows x64.')
+ if not args.vc_redist.is_file():parser.error('Falta el redistribuible C++ oficial.')
+ target=args.output_dir.resolve();target.mkdir(parents=True,exist_ok=True)
+ subprocess.run(['node','sku/build-server.mjs'],cwd=ROOT,check=True)
+ with tempfile.TemporaryDirectory(prefix='jm-public-') as folder:
   clean=pathlib.Path(folder);server=clean/'sku-servidor';server.mkdir();(clean/'sku').mkdir()
-  for name in SERVER_FILES:shutil.copy2(ROOT/'sku-servidor'/name,server/name)
-  shutil.copytree(ROOT/'sku-servidor/public',server/'public');shutil.copy2(ROOT/'sku/SKU-JAD-Servidor.spec',clean/'sku/SKU-JAD-Servidor.spec')
-  initializer=runpy.run_path(str(ROOT/'tools/inicializar.py'));initializer['create_initials'](server,secrets.token_urlsafe(32));(server/'initial-admin.json').unlink()
+  for path in (ROOT/'sku-servidor').glob('*.py'):shutil.copy2(path,server/path.name)
+  shutil.copy2(ROOT/'sku-servidor/catalogos.json',server/'catalogos.json')
+  shutil.copytree(ROOT/'sku-servidor/public',server/'public',ignore=shutil.ignore_patterns('logo.png'))
+  shutil.copy2(ROOT/'sku/SKU-JAD-Servidor.spec',clean/'sku/SKU-JAD-Servidor.spec')
+  initializer=runpy.run_path(str(ROOT/'tools/inicializar.py'))
+  initializer['create_initials'](server,secrets.token_urlsafe(32));(server/'initial-admin.json').unlink()
   subprocess.run([sys.executable,'-m','PyInstaller','--noconfirm','sku/SKU-JAD-Servidor.spec','--distpath',str(target),'--workpath',str(clean/'build')],cwd=clean,check=True)
- shutil.copy2(target/'SKU-JAD-Servidor.exe',target/'ERP JM Lite.exe');shutil.copy2(target/'SKU-JAD-Servidor.exe',target/'ERP_JM_Lite.exe')
+ shutil.copy2(args.vc_redist,target/'VC_redist.x64.exe')
+ 
+ for script in ('install_windows.ps1','verify_windows.ps1'):shutil.copy2(ROOT/'tools'/script,target/script)
  (target/'LEEME.txt').write_text(GUIDE,encoding='utf8')
- with zipfile.ZipFile(target.parent/'ERP_JM_Lite_Windows.zip','w',zipfile.ZIP_DEFLATED) as archive:
-  for name in ('ERP_JM_Lite.exe','LEEME.txt'):archive.write(target/name,name)
- print('EXE público sin maestros ni credenciales:',target/'SKU-JAD-Servidor.exe')
+ names=('ERP_JM_Lite.exe','VC_redist.x64.exe','install_windows.ps1','verify_windows.ps1','LEEME.txt')
+ manifest={'product':'ERP JM Lite','version':'0.1.0-dev','profile':'windows-modern-x64','certified':False,'python':sys.version.split()[0],'files':{name:hashlib.sha256((target/name).read_bytes()).hexdigest() for name in names}}
+ (target/'manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf8')
+ archive_path=target.parent/'ERP_JM_Lite_Windows_Piloto.zip'
+ with zipfile.ZipFile(archive_path,'w',zipfile.ZIP_DEFLATED) as archive:
+  for name in (*names,'manifest.json'):archive.write(target/name,name)
+ print('Paquete piloto sin datos ni credenciales:',archive_path)
 if __name__=='__main__':main()
-
-

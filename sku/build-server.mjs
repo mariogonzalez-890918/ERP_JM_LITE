@@ -100,6 +100,7 @@ const seasonalArtwork={};for(const season of ['halloween','navidad'])seasonalArt
 await fs.writeFile(dir+'/public/workspace-menu.js',(await fs.readFile('sku/workspace-menu.js','utf8')).replace('const seasonalArtwork={};','const seasonalArtwork='+JSON.stringify(seasonalArtwork)+';'));
 for(const artwork of ['halloween-art.svg','navidad-art.svg'])await fs.copyFile('sku/'+artwork,dir+'/public/'+artwork);
 await fs.appendFile(dir+'/public/app.js','\n'+await fs.readFile('sku/catalog-config-ui.js','utf8'));
+await fs.appendFile(dir+'/public/app.js','\n'+await fs.readFile('sku/sku-ficha-ui.js','utf8'));
 for(const name of ['index.html','login.html','commercial.html','purchase.html','inventory.html','enterprise.html','quality.html','crm.html','security.html','finance.html']){
  let html=await fs.readFile(dir+'/public/'+name,'utf8');
  html=html.replace(/<script type="module" src="\/theme.js"><\/script>/g,'');

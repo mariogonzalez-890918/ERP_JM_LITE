@@ -26,6 +26,8 @@ def save(db,data):
  except (InvalidOperation,TypeError):raise ValueError('Tasa inválida.')
  if not name or not rate.is_finite() or not 0<=rate<=100 or rate.as_tuple().exponent < -4 or type(data.get('activo',True)) is not bool:raise ValueError('Indica nombre y tasa de 0 a 100 con hasta cuatro decimales.')
  company=data['empresa'];id=data.get('id') or secrets.token_hex(16);row=db.execute('SELECT company,revision FROM app_taxes WHERE id=?',(id,)).fetchone()
+ from requisiciones import norm
+ if any(norm(n)==norm(name) and i!=id for i,n in db.execute('SELECT id,name FROM app_taxes WHERE company=?',(company,))):raise ValueError('Ya existe un impuesto con ese nombre en esta empresa.')
  if row and row[0]!=company:raise PermissionError('Impuesto de otra empresa.')
  if data.get('revision',0)!=(row[1] if row else 0):raise Conflict('El impuesto cambió. Actualiza la configuración.')
  db.execute('INSERT INTO app_taxes VALUES(?,?,?,?,?,1) ON CONFLICT(id) DO UPDATE SET name=excluded.name,rate=excluded.rate,active=excluded.active,revision=app_taxes.revision+1',(id,company,name,format(rate,'f'),int(data.get('activo',True))))

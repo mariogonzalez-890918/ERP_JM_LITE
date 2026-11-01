@@ -334,6 +334,10 @@ def create_handler(store):
      elif path=='/api/seguridad/estado':result=store.security.status(actor)
      elif path=='/api/empresa/config':result=enterprise.get(actor)
      elif path=='/api/empresa/impuestos':result=enterprise.taxes(int(q.get('empresa','0')),actor)
+     elif path=='/api/empresa/impuestos/layout':
+      enterprise.admin(actor)
+      from impuestos_import import layout
+      result=layout()
      elif path=='/api/empresa/logo':result=enterprise.company_logo(int(q.get('empresa','0')),actor)
      elif path=='/api/empresa/modulos':result=enterprise.contract(actor)
      elif path=='/api/crm/planes':result=crm.plans(q,actor)
@@ -500,6 +504,9 @@ def create_handler(store):
      if self.path not in actions:raise ValueError('Acción de seguridad no disponible.')
      return self.reply(200,actions[self.path](data,actor))
     if self.path.startswith(('/api/empresa/','/api/calidad/','/api/crm/')):
+     if self.path=='/api/empresa/impuestos/importar':
+      from impuestos_import import run
+      return self.reply(200,run(enterprise,self.read_body(),actor))
      if self.path=='/api/empresa/impuestos':return self.reply(200,enterprise.save_tax(self.read_body(),actor))
      if self.path=='/api/empresa/logo':return self.reply(200,enterprise.save_logo(self.read_body(),actor))
      if self.path=='/api/empresa/edicion':return self.reply(200,enterprise.save_edition(self.read_body(),actor))
@@ -568,7 +575,8 @@ def create_handler(store):
      read_scope(actor,'ventas')
      if self.path.endswith('/importar'):require_module(actor,'cargar_maestro')
      else:write_scope(actor,'ventas')
-     data=self.read_body();result=sales.import_master(data,actor) if self.path.endswith('/importar') else sales.put(data,actor)
+     from sku_ficha import save_capture
+     data=self.read_body();result=sales.import_master(data,actor) if self.path.endswith('/importar') else save_capture(store,sales,commercial.cm,data,actor)
      if result is None:return self.reply(409,{'error':'Ventas cambió. Actualiza antes de guardar.'})
      return self.reply(200,result)
     return self.reply(404,{'error':'No encontrado.'})

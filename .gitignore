@@ -145,6 +145,7 @@
 !/sku-servidor/public/halloween-art.svg
 !/sku-servidor/public/navidad-art.svg
 !/sku/catalog-config-ui.js
+!/sku/sku-ficha-ui.js
 !/sku/crm-management-panel.html
 !/sku/crm-management-ui.js
 !/sku/quality-management-ui.js
@@ -153,6 +154,7 @@
 !/sku-servidor/public/finance.js
 !/tests/test_finance.py
 !/tests/test_company_taxes.py
+!/tests/test_sku_ficha.py
 !/tests/test_crm_management.py
 !/tools/provision_activation.py
 !/sku-servidor/public/crm.html

@@ -172,7 +172,7 @@ class CommercialStore:
    with self.store.connect() as db:tax=configured(db,company,'ventas',sku)
    if tax:product.update(tax)
    if channel=='ventasins' and not product.get('institucional',True) or channel=='expendios' and not product.get('expendio'):continue
-   if q and q not in (sku+' '+product['nombre']).upper():continue
+   if q and q not in (sku+' '+product['nombre']+' '+product.get('claveAlterna','')).upper():continue
    if not any((key,sku) in pmap for key in LISTS):continue
    product['precios']={key:pmap[(key,sku)]['precio'] for key in (('PUBLICO',) if channel=='ventasins' else ('RUTA','DESPACHO')) if (key,sku) in pmap};result.append(product)
   return {'productos':result}

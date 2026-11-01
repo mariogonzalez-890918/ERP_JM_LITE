@@ -56,6 +56,12 @@ def save_product(cm,data,actor):
   if sku in state['reservados']:raise ValueError('El SKU está reservado por una baja anterior.')
   value={'nombre':name,'unidad':unit,'iva':format(rate,'f'),'tipo':text(data.get('tipo',''),100),'categoria':text(data.get('categoria',''),100),'subcategoria':text(data.get('subcategoria',''),100),'linea':text(data.get('linea',''),100),'modulo':text(data.get('modulo',''),100),'institucional':'ventasins' in selected,'expendio':'expendios' in selected,'activo':data.get('activo',True) is True,'origen':'MANUAL'}
   if tax_id:value['iva']=json.loads(old[1]).get('iva') if old else None
+  previous=json.loads(old[1]) if old else {}
+  for field,limit in [('claveAlterna',80),('claveSat',8),('unidadSat',10),('observaciones',2000)]:value[field]=text(data.get(field,previous.get(field,'')),limit)
+  if value['claveSat'] and (len(value['claveSat'])!=8 or not value['claveSat'].isdigit()):raise ValueError('La clave SAT del producto debe contener 8 dígitos.')
+  kind=data.get('naturaleza',previous.get('naturaleza','PRODUCTO'))
+  if kind not in ('PRODUCTO','SERVICIO'):raise ValueError('Selecciona producto o servicio.')
+  value['naturaleza']=kind
   db.execute('INSERT INTO cm_products VALUES(?,?,?) ON CONFLICT(sku) DO UPDATE SET payload=excluded.payload,revision=excluded.revision',(sku,dumps(value),(old[0] if old else 0)+1))
   for listing,price in prices.items():
    enabled=listing=='PUBLICO' and 'ventasins' in selected or listing!='PUBLICO' and 'expendios' in selected

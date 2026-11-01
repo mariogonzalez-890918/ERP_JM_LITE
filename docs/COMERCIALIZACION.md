@@ -53,6 +53,12 @@ Empresa y configuración permite subir, sustituir o quitar un logo PNG/JPG por r
 
 Los impuestos configurables son tasas porcentuales trasladadas, independientes por empresa y sin precarga. Pueden ligarse a SKU de compras o ventas; los productos de venta también los seleccionan durante su captura. Ventas desglosa el impuesto incluido en el precio y compras lo agrega al costo. Cambiar una tasa no recalcula documentos emitidos. Esta configuración no implementa retenciones ni timbrado fiscal.
 
+Crear SKU Ventas incluye una ficha comercial: empresa, naturaleza de producto/servicio, unidad, línea, clave alterna o código de barras, claves SAT informativas, impuesto, destinos y precios. Al guardar, el código y el producto comercial se registran juntos en una transacción; un impuesto inválido no deja un SKU a medias. Puede reservarse solo el código desmarcando expresamente la ficha comercial. Las claves SAT capturadas no constituyen timbrado ni validación contra el catálogo del SAT.
+
+Desde esa pantalla se agregan impuestos y se descarga el layout XLSX IMPUESTOS para carga masiva. Sus columnas son AMBITO, SKU, IMPUESTO, TASA y ACTIVO (SI/NO). AMBITO admite compras/ventas; dejando AMBITO y SKU vacíos se configura únicamente el impuesto. La vista previa identifica creaciones, actualizaciones y vínculos; aplicar exige el mismo archivo, empresa y estado de datos. La carga completa se revierte si alguna fila es inválida.
+
+Referencia funcional consultada: [datos generales de productos y servicios SAE](https://saeportaldeclientes.aspel.com.mx/crear-o-dar-de-alta-productos-y-servicios/) y [precios e impuestos SAE](https://saeportaldeclientes.aspel.com.mx/crear-o-dar-de-alta-productos-y-servicios-precios-e-impuestos/). Se tomaron como referencia la organización y los campos; la implementación y la interfaz son propias.
+
 Gerencia y Superadministrador asignan y reasignan clientes. Solo esos perfiles consultan o configuran comisiones: sobre facturado o cobrado, antes de impuestos o con impuestos. CXC conserva la regla vigente al registrar cada factura y el subtotal capturado; los cobros parciales y reembolsos se prorratean. El reporte separa totales por moneda y se exporta a CSV, XLSX y PDF.
 
 ## Pendientes antes de vender

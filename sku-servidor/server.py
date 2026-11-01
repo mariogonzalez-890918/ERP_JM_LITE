@@ -25,7 +25,7 @@ from sucursales import save_branch
 APP_DIR=pathlib.Path(sys.executable).resolve().parent if getattr(sys,'frozen',False) else ROOT
 ALPHABET='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 MAX_BODY=25*1024*1024
-ROLES={'superadmin':'SUPERADMINISTRADOR','auxti':'AUXTI','visualizador':'VISUALIZADOR','ventas':'VENTAS','compras':'COMPRAS','alta':'ALTA DE PRODUCTOS','gerente':'GERENTE','almacenista':'ALMACENISTA','requisicion':'REQUISICIÓN','ventaspasteleria':'VENTASPASTELERIA','ventasins':'VENDEDOR','expendios':'PDV','calidad':'CALIDAD'}
+ROLES={'superadmin':'SUPERADMINISTRADOR','auxti':'AUXTI','visualizador':'VISUALIZADOR','ventas':'VENTAS','compras':'COMPRAS','alta':'ALTA DE PRODUCTOS','gerente':'GERENTE','almacenista':'ALMACENISTA','requisicion':'REQUISICIÓN','ventaspasteleria':'VENTASPASTELERIA','ventasins':'VENDEDOR','expendios':'TPV','calidad':'CALIDAD'}
 def read_scope(actor,scope):
  require_module(actor,scope)
 def write_scope(actor,scope):
@@ -298,6 +298,7 @@ def create_handler(store):
   def do_GET(self):
    path=self.path.split('?')[0]
    if path=='/logo.svg':return self.reply(200,(ROOT/'public/logo.svg').read_bytes(),'image/svg+xml')
+   if path in ('/halloween-art.svg','/navidad-art.svg'):return self.reply(200,(ROOT/'public'/path[1:]).read_bytes(),'image/svg+xml')
    if path=='/theme.js':return self.reply(200,(ROOT/'public/theme.js').read_bytes(),'text/javascript; charset=utf-8')
    actor=self.auth()
    if actor and not self.active(actor):return self.reply(403,{'error':'Sistemas debe activar esta instalación antes de habilitar el acceso de usuarios.'})

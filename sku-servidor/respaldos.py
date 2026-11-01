@@ -2,7 +2,7 @@
 import base64,copy,hashlib,hmac,json,pathlib,re,uuid,zipfile,io
 from requisiciones import BRANCHES,AREAS,Conflict,now
 from areas import default_catalog,validate_catalog
-MODULES={'compras':'SKU Compras','ventas':'SKU Ventas','requisiciones':'Requisición de compras / materiales','comercial':'Pedidos institucionales y Expendios'}
+MODULES={'compras':'SKU Compras','ventas':'SKU Ventas','requisiciones':'Requisición de compras / materiales','comercial':'Pedidos institucionales y TPV'}
 TABLES=('req_materials','req_masters','req_branches','req_series_registry','req_documents','req_costs','req_reports','req_report_features','req_changes','req_document_versions','req_images','req_areas')
 def digest(value):return hashlib.sha256(json.dumps(value,sort_keys=True,ensure_ascii=False,separators=(',',':'),allow_nan=False).encode()).hexdigest()
 def check(condition,message):

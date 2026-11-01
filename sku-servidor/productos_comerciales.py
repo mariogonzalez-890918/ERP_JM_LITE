@@ -24,7 +24,7 @@ def save_product(cm,data,actor):
  if not name or not unit or not isinstance(selected,list) or not selected or len(set(selected))!=len(selected) or set(selected)-{'ventasins','expendios'} or rate not in (0,8,16):raise ValueError('Indica descripción, unidad, 0% sin IVA, 8% IEPS o 16% IVA y al menos un canal.')
  prices={l:optional_price((data.get('precios') or {}).get(l)) for l in ('PUBLICO','RUTA','DESPACHO')}
  if 'ventasins' in selected and prices['PUBLICO'] is None:raise ValueError('Institucionales requiere precio público con IVA.')
- if 'expendios' in selected and all(prices[k] is None for k in ('RUTA','DESPACHO')):raise ValueError('Expendios requiere al menos un precio de ruta o despacho.')
+ if 'expendios' in selected and all(prices[k] is None for k in ('RUTA','DESPACHO')):raise ValueError('TPV requiere al menos un precio de ruta o despacho.')
  with cm.store.connect() as db:
   db.execute('BEGIN IMMEDIATE');sale_row=db.execute('SELECT revision,payload FROM sales_catalog WHERE id=1').fetchone();sales=json.loads(sale_row[1]);state=sales['state'];old=None
   if original:

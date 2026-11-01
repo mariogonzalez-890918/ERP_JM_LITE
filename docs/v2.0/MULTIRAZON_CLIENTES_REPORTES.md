@@ -6,7 +6,7 @@ Requisitos incorporados el **28 de octubre de 2026**. Este documento amplía el 
 
 ## 1. Tres razones sociales capturadas por el usuario
 
-Se contemplan **tres razones sociales emisoras**, válidas tanto en pedidos institucionales como en Expendios. En Configuración → Razones sociales se presentan tres espacios sin datos empresariales precargados. El usuario llena denominación, nombre comercial, RFC si corresponde a su configuración, domicilio, contacto, moneda, logo y textos de impresión. Superadministrador captura/autoriza inicialmente esos datos; su administración podrá asignarse como capacidad separada, sin conceder gestión de perfiles.
+Se contemplan **tres razones sociales emisoras**, válidas tanto en pedidos institucionales como en TPV. En Configuración → Razones sociales se presentan tres espacios sin datos empresariales precargados. El usuario llena denominación, nombre comercial, RFC si corresponde a su configuración, domicilio, contacto, moneda, logo y textos de impresión. Superadministrador captura/autoriza inicialmente esos datos; su administración podrá asignarse como capacidad separada, sin conceder gestión de perfiles.
 
 **Razón social emisora, empresa cliente, sucursal y caja son entidades diferentes.** CENTRAL, NORTE, SUR y ORIENTE siguen siendo ubicaciones. Una ubicación puede operar para más de una razón social mediante cajas separadas. No se identifica una empresa por la sucursal ni por el módulo de producto A01–A22.
 
@@ -32,7 +32,7 @@ La migración desde 1.8.0 no asigna datos históricos a una empresa inventada. E
 
 ## 2. Alta y gestión de clientes
 
-VentasIns → Pedidos → Clientes y Expendios → Pedidos → Clientes utilizarán un mismo servicio autorizado. El alta sigue el patrón de formulario de contactos de Odoo 14: identificación, contactos/direcciones y condiciones comerciales, separando la entidad cliente de la empresa emisora. Referencia: [formulario oficial de contactos 14.0](https://github.com/odoo/odoo/blob/14.0/odoo/addons/base/views/res_partner_views.xml).
+VentasIns → Pedidos → Clientes y TPV → Pedidos → Clientes utilizarán un mismo servicio autorizado. El alta sigue el patrón de formulario de contactos de Odoo 14: identificación, contactos/direcciones y condiciones comerciales, separando la entidad cliente de la empresa emisora. Referencia: [formulario oficial de contactos 14.0](https://github.com/odoo/odoo/blob/14.0/odoo/addons/base/views/res_partner_views.xml).
 
 | Bloque | Datos propuestos |
 | --- | --- |
@@ -42,7 +42,7 @@ VentasIns → Pedidos → Clientes y Expendios → Pedidos → Clientes utilizar
 | Condiciones por emisor | Razón social autorizada, lista de precios, moneda, condiciones de pago, vendedor/cartera y referencias del cliente. |
 | Control | Usuario/fecha de alta, revisiones, archivos de importación y trazabilidad de cambios. |
 
-**VentasIns:** alta/edición de clientes de su cartera con capacidad habilitada. **Expendios:** alta rápida de nombre/contacto/dirección si se habilita; puede vender al cliente configurado de mostrador sin inventar datos. Límites de crédito, cambios de cartera y condiciones especiales son capacidades aparte. El diseño no activa crédito por el mero hecho de crear un cliente.
+**VentasIns:** alta/edición de clientes de su cartera con capacidad habilitada. **TPV:** alta rápida de nombre/contacto/dirección si se habilita; puede vender al cliente configurado de mostrador sin inventar datos. Límites de crédito, cambios de cartera y condiciones especiales son capacidades aparte. El diseño no activa crédito por el mero hecho de crear un cliente.
 
 Un cliente puede operar con las tres razones sociales sin duplicar necesariamente su identidad, pero sus listas, condiciones y saldos se mantienen por emisor. La asociación compartida es explícita; no expone automáticamente toda la cartera a otros usuarios. Direcciones y contactos hijos heredan las restricciones. Datos fiscales parecidos producen aviso de posible duplicado, no una fusión automática. Códigos/IDs estables determinan identidad; no usar solo nombre o RFC para sobrescribir registros.
 
@@ -80,7 +80,7 @@ El usuario podrá capturar **serie, folio inicial y ancho de presentación** des
 - Vista previa, revisión concurrente y auditoría de quién configuró el contador. Restaurar respaldo conserva los máximos, incluso si el respaldo tenía un siguiente menor.
 - Configuración inicialmente de Superadministrador; delegación explícita de `configurar_folios_institucionales`. Operadores de ventas no cambian el contador por tener permiso para confirmar pedidos.
 
-## 5. Folio interno y solicitudes de cancelación en Expendios
+## 5. Folio interno y solicitudes de cancelación en TPV
 
 Cada venta tendrá **ID técnico**, **folio interno de operación** legible y **folio de ticket**. El interno se asigna por el servidor y permanece aun si la venta se cancela. Además, cada solicitud de cancelación tendrá un folio propio, vinculado al interno y al ticket. No son SKU ni folios de requisición.
 
@@ -94,13 +94,13 @@ Venta registrada → Solicitar cancelación con motivo
                 → APROBADA: operación CANCELADA y movimientos vinculados
 ```
 
-**Solo AUXTI y Superadministrador cancelan/autorizarán la cancelación de Expendios. Gerencia no puede hacerlo.** Esta condición se comprueba en el servidor, incluso si otro perfil tiene acceso al módulo, a reportes o a excepciones generales. No basta un checkbox de visibilidad para conceder cancelación. El solicitante no resuelve su propia solicitud; cualquier ampliación de esa política se revisará expresamente.
+**Solo AUXTI y Superadministrador cancelan/autorizarán la cancelación de TPV. Gerencia no puede hacerlo.** Esta condición se comprueba en el servidor, incluso si otro perfil tiene acceso al módulo, a reportes o a excepciones generales. No basta un checkbox de visibilidad para conceder cancelación. El solicitante no resuelve su propia solicitud; cualquier ampliación de esa política se revisará expresamente.
 
-Expendios solicita sobre sus operaciones/cajas autorizadas y consulta el estado. Se registra emisor, sucursal, caja, sesión, cajero, folios, importe, motivo, solicitante, revisor, fecha y decisión. La solicitud pendiente no altera ventas, cobros ni arqueo. Revisar la versión de la venta antes de autorizar y bloquear doble cancelación/reembolso.
+TPV solicita sobre sus operaciones/cajas autorizadas y consulta el estado. Se registra emisor, sucursal, caja, sesión, cajero, folios, importe, motivo, solicitante, revisor, fecha y decisión. La solicitud pendiente no altera ventas, cobros ni arqueo. Revisar la versión de la venta antes de autorizar y bloquear doble cancelación/reembolso.
 
 Una venta cobrada **no se borra**. La autorización genera la anulación comercial y su trazabilidad. El reembolso de dinero se registra por separado con importe, medio y estado: cancelar no demuestra que se haya devuelto efectivo. Reportes distinguirán venta anulada, importe a reembolsar y reembolso efectuado; la caja solo descuenta salidas reales de efectivo. Reimpresiones se marcan CANCELADO/COPIA conservando el documento original y el folio de autorización.
 
-Esta regla es exclusiva de **Expendios**. No elimina la facultad de Gerente para autorizar cancelaciones de requisiciones en la versión actual.
+Esta regla es exclusiva de **TPV**. No elimina la facultad de Gerente para autorizar cancelaciones de requisiciones en la versión actual.
 
 ## 6. Reportes y exportación con referencia Odoo 14
 
@@ -112,7 +112,7 @@ La referencia es la experiencia de filtros/listados y Acción → Exportar: sele
 | --- | --- |
 | Presupuestos y pedidos | Emisor, cliente, vendedor, estado, aceptación, vencimiento, importes y documento de origen. |
 | Ventas | Razón social → canal → sucursal → cliente/producto/vendedor → documento. |
-| Expendios | Caja, sesión, cajero, tickets, medios de pago, anulaciones y reembolsos. |
+| TPV | Caja, sesión, cajero, tickets, medios de pago, anulaciones y reembolsos. |
 | IVA | Bases, IVA y totales separados en 0 %, 8 % y 16 %, con devoluciones/anulaciones vinculadas. |
 | Caja | Fondo, entradas, efectivo esperado/contado, salidas reales, diferencias y responsable del cierre. |
 | Clientes | Altas, actividad, pedidos y cobros por cliente y razón social; no exponer cartera ajena. |
@@ -136,7 +136,7 @@ Un consolidado agrupa por razón social y moneda, identifica las incluidas y per
 - Respaldar las tres razones sociales con todas sus dependencias. Cualquier restauración parcial necesita validación de referencias, alcances y contadores; no restaurar una empresa encima de pagos de otra.
 - Probar aislamiento entre empresas en API, impresión, exportaciones, búsquedas y favoritos; al cambiar razón social no reaprovechar un carrito anterior.
 - Probar IVA mixto y precios incluidos/excluidos, descuentos, redondeos y devoluciones. Los mismos datos deben producir totales idénticos en pedido, ticket, dashboard, CSV, XLSX y PDF.
-- Probar folio inicial elegido, concurrencia, salto de serie y restauración sin reutilización; gerencia intentando cancelar Expendios debe recibir denegación.
+- Probar folio inicial elegido, concurrencia, salto de serie y restauración sin reutilización; gerencia intentando cancelar TPV debe recibir denegación.
 - Probar solicitud pendiente sin impacto, rechazo, autorización por AUXTI/Superadministrador, doble clic, venta modificada y reembolso pendiente/efectuado.
 
 El prototipo adjunto al PR ilustra la navegación inicial, perfiles y formatos; **aún no simula** estos nuevos formularios multirrazón, alta completa de clientes, IVA mixto, selector de columnas ni solicitudes de cancelación. La especificación anterior define lo que deberá añadirse antes de aceptarlos como implementados.

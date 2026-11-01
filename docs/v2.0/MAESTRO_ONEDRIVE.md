@@ -20,11 +20,11 @@ La liga compartida, el embed, identificadores de cuenta y credenciales se conser
 | D | SUBCATEGORÍA | Subcategoría; preservar claves e identidad. |
 | E | LINEA | Línea para pasteles; no convertirla en otra categoría ni exigirla en productos a los que no aplica. |
 | F | MODULO ID PDV | Categoría/módulo de navegación del TPV. Resolver nombres o A01–A22; no usarlo como sucursal, caja ni emisor. |
-| G | EXPENDIO | Indicador adicional de disponibilidad para Expendios. Definir valores admitidos, por ejemplo SI/NO; vacíos/desconocidos se revisan al habilitar el conector, no causan borrado de artículos. |
+| G | EXPENDIO | Indicador adicional de disponibilidad para TPV. Definir valores admitidos, por ejemplo SI/NO; vacíos/desconocidos se revisan al habilitar el conector, no causan borrado de artículos. |
 | H | DESCRIPCION | Descripción comercial del producto. |
 | I | PRECIO DE VENTA PUERTA | El usuario lo define como **precio público base para pedidos institucionales**. Conservar el encabezado original, aunque la etiqueta del sistema sea “Institucional público”. |
-| J | PRECIO DE VENTA EXPENDIO RUTA | Lista base **Ruta** en Expendios/TPV. |
-| K | PRECIO DE VENTA EXPENDIO DESPACHO | Lista base **Despacho** en Expendios/TPV. |
+| J | PRECIO DE VENTA EXPENDIO RUTA | Lista base **Ruta** en TPV/TPV. |
+| K | PRECIO DE VENTA EXPENDIO DESPACHO | Lista base **Despacho** en TPV/TPV. |
 | L | PRECIO DE VENTA MERMA | Conservar en la referencia/exportación del maestro; no habilitar como lista de venta sin solicitud expresa. |
 | M | RAYA | Campo de referencia sin regla comercial solicitada; no usar para precios, impuestos o caja. |
 | N | IMPUESTO | IVA de 0 %, 8 % o 16 %, aplicado al producto/partida. |
@@ -51,7 +51,7 @@ En pedidos institucionales se podrán mantener **plantillas por cliente** y **pr
 1. Una plantilla por cliente propone productos, cantidades, secciones, notas y condiciones al crear un presupuesto; no conserva un precio viejo como tarifa automática.
 2. Una regla de precio por cliente, SKU, unidad, razón social y vigencia tiene prioridad sobre la lista pública I si está autorizada y activa.
 3. Si no existe precio pactado aplicable, se utiliza I del maestro para la lista institucional autorizada. Si tampoco hay precio válido, bloquear confirmación, no usar J/K por accidente.
-4. En Expendios se usa Ruta J o Despacho K según la lista asignada a caja/operación y permisos. El operador no obtiene todas las listas por visualizar el módulo.
+4. En TPV se usa Ruta J o Despacho K según la lista asignada a caja/operación y permisos. El operador no obtiene todas las listas por visualizar el módulo.
 5. Las reglas registran origen **MAESTRO_ONEDRIVE**, **CLIENTE** o **MANUAL_AUTORIZADO**. La sincronización modifica únicamente los campos y reglas cuya fuente es el maestro. No sobrescribe precios pactados ni plantillas de clientes.
 
 Un cambio de I/J/K o de N crea una nueva revisión para operaciones futuras. Documentos confirmados, cobros y tickets conservan precio/IVA/condiciones de su snapshot. Presupuestos ya guardados informan que hay una nueva tarifa y permiten recalcular con revisión visible; no cambian silenciosamente. Un precio pactado final conserva su importe autorizado y desglosa la tasa aplicable de la nueva operación, salvo una configuración de impuestos expresamente aprobada.

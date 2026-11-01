@@ -26,4 +26,4 @@ El objetivo visual es Odoo **Enterprise 14**. Se propone conservar sus patrones 
 
 La evidencia pública consultada documenta la base 14.0 y funcionalidades compartidas. No se tuvo acceso a una instalación Enterprise 14 del usuario ni a su tema, personalizaciones o módulos privados. Por ello, el prototipo es una propuesta cercana para revisión; no una reproducción exacta verificada de esa instalación. Antes de cerrar el diseño visual se cotejarán capturas de referencia autorizadas en las mismas resoluciones.
 
-Las decisiones propias de JM —Expendios como contenedor del TPV, asignación por perfil, precedencia de precios, alcances por sucursal, reglas de autorización y base de datos compartida— son propuestas de integración, no afirmaciones sobre comportamientos predeterminados de Odoo.
+Las decisiones propias de JM —TPV como contenedor del TPV, asignación por perfil, precedencia de precios, alcances por sucursal, reglas de autorización y base de datos compartida— son propuestas de integración, no afirmaciones sobre comportamientos predeterminados de Odoo.

@@ -18,6 +18,7 @@ class CRMManagement(CRM):
    if 'basis' not in [r[1] for r in db.execute('PRAGMA table_info(crm_commissions)')]:db.execute("ALTER TABLE crm_commissions ADD COLUMN basis TEXT NOT NULL DEFAULT 'FACTURADO'")
  def metadata(self,actor,company):
   value=super().metadata(actor,company);value['vendedores']=[v for v in value['vendedores'] if company in self.cm.access({'email':v['email']})['empresas']]
+  value['productos']=[{'sku':p['sku'],'nombre':p['nombre']} for p in self.cm.products(company,actor,'ventasins')['productos']]
   value.update({'puedeAgregarVendedores':is_internal_admin(actor),'puedeComisiones':actor['role'] in MANAGERS,'puedeTableroMensual':self.insight_allowed(actor,company),'puedeAutorizarTablero':is_internal_admin(actor)})
   if actor['role'] in MANAGERS:
    with self.store.connect() as db:commissions={(c,s):(p,r,b) for c,s,p,r,b in db.execute('SELECT customer,seller,percentage,revision,basis FROM crm_commissions WHERE company=?',(company,))}

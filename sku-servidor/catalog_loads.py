@@ -8,7 +8,7 @@ SALES={'A':'SKU','B':'PRODUCTOS Y SERVICIOS','C':'CATEGORIA','D':'SUBCATEGORIA',
 LAYOUTS={
  'compras':('SKU Compras e insumos','PRODUCTOS',PURCHASE,'compras','Genera o conserva SKU y enlaza los materiales de requisiciones, compras e inventarios.'),
  'ventas':('SKU Ventas','SUGERIDO',SALES,'ventas','Conserva SKU históricos y enlaza productos, listas de precios y canales de venta.'),
- 'pdv':('Punto de venta','SUGERIDO',SALES,'expendios','CANAL: EXPENDIOS o AMBOS. Precios incluyen impuestos; IMPUESTO: 0, 8 o 16. Requiere empresa.'),
+ 'pdv':('TPV','SUGERIDO',SALES,'expendios','CANAL: EXPENDIOS o AMBOS. Precios incluyen impuestos; IMPUESTO: 0, 8 o 16. Requiere empresa.'),
  'requisiciones':('Materiales de requisición','PRODUCTOS',PURCHASE,'requisiciones','Carga el maestro de materiales de requisición. Para enlazar SKU usa la carga de Compras.'),
  'proveedores':('Proveedores','PROVEEDORES',None,'pedidoscompra','Usa el importador de proveedores en Compras.'),
  'clientes':('Clientes','CLIENTES',None,'ventasins','Usa el importador de clientes en Ventas o PDV.'),
@@ -89,7 +89,8 @@ class CatalogLoads:
   if not raw or len(raw)>15*1024*1024:raise ValueError('Usa un XLSX de hasta 15 MB.')
   digest=hashlib.sha256(raw).hexdigest()
   with self.store.atomic(rollback=review) as db:
-   fingerprint=self.fingerprint(db)
+   options=json.dumps({'modulo':id,'empresas':data.get('empresas',[]),'destinos':data.get('destinos')},sort_keys=True)
+   fingerprint=hashlib.sha256((self.fingerprint(db)+options).encode()).hexdigest()
    if not review and (data.get('huellaActual')!=fingerprint or data.get('huellaArchivo')!=digest):raise Conflict('La base o el archivo cambió. Revisa nuevamente la carga.')
    if id=='areas':
     self.req.areas.authorize(actor);rows,_=read_rows(raw,'AREAS.xlsx',sheet_name='AREAS');seen=set();count=0
@@ -113,6 +114,11 @@ class CatalogLoads:
     result={'sku':result['resumen'],'materiales':linked}
    elif id in ('ventas','pdv'):
     require_module(actor,'ventas')
+    destinations=data.get('destinos')
+    if destinations is not None:
+     if not isinstance(destinations,list) or not destinations or any(v not in ('ventasins','expendios') for v in destinations) or len(set(destinations))!=len(destinations):raise ValueError('Selecciona destinos válidos para el SKU de venta.')
+     for destination in destinations:require_module(actor,destination)
+     if id=='pdv' and 'expendios' not in destinations:raise ValueError('La carga PDV requiere el destino TPV.')
     from ventas import TIP,CAT,SUB,PDV
     if not TIP or not CAT or not SUB or id=='pdv' and not PDV:raise ValueError('Configura las clasificaciones SKU de Ventas y las agrupaciones PDV antes de cargar el archivo.')
     companies=data.get('empresas',[])
@@ -125,9 +131,10 @@ class CatalogLoads:
     for record in loaded['state']['registros']:
      if record['eliminado']:continue
      row={**record.get('camposExcel',{}),'A':record['sku'],'H':record['nombre'],'S':record['estado']}
+     if destinations is not None:row['W']='AMBOS' if len(destinations)==2 else 'INSTITUCIONALES' if destinations[0]=='ventasins' else 'EXPENDIOS'
      if not row['A']:raise ValueError('Completa la clasificación para generar todos los SKU de ventas.')
      if any(record[key]=='00' for key in ('tipo','categoria','subcategoria')):raise ValueError('El archivo contiene clasificaciones sin configurar. Configura sus códigos o nombres antes de cargarlo.')
-     if id=='pdv' and norm(row.get('W','')) not in ('EXPENDIOS','AMBOS'):raise ValueError('La carga PDV requiere CANAL EXPENDIOS o AMBOS en todas las filas.')
+     if id=='pdv' and norm(row.get('W','')) not in ('EXPENDIOS','TPV','AMBOS'):raise ValueError('La carga TPV requiere CANAL TPV o AMBOS en todas las filas.')
      rows.append(row)
     linked_content=base64.b64encode(workbook('SUGERIDO',SALES,rows)).decode()
     from maestro_comercial import import_master

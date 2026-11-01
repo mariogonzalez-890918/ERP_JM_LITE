@@ -1,4 +1,8 @@
-import fs from 'node:fs/promises';import vm from 'node:vm';
+import nativeFs from 'node:fs/promises';import vm from 'node:vm';import {randomUUID} from 'node:crypto';
+// OneDrive y el antivirus pueden bloquear brevemente un recurso durante el build.
+async function retryFile(action){for(let attempt=0;;attempt++){try{return await action();}catch(error){if(!['EBUSY','EPERM','EACCES'].includes(error.code)||attempt>=12)throw error;await new Promise(resolve=>setTimeout(resolve,150*(attempt+1)));}}}
+async function atomicWrite(path,data,options){const temporary=path+'.jm-build-'+randomUUID();try{await retryFile(()=>nativeFs.writeFile(temporary,data,options));await retryFile(()=>nativeFs.rename(temporary,path));}finally{await nativeFs.unlink(temporary).catch(error=>{if(error.code!=='ENOENT')throw error;});}}
+const fs={...nativeFs,readFile:(...args)=>retryFile(()=>nativeFs.readFile(...args)),writeFile:atomicWrite,copyFile:async(source,target)=>atomicWrite(target,await retryFile(()=>nativeFs.readFile(source))),appendFile:async(path,data)=>atomicWrite(path,Buffer.concat([await retryFile(()=>nativeFs.readFile(path)),Buffer.from(data)]))};
 const dir='sku-servidor';await fs.mkdir(dir+'/public',{recursive:true});
 const engine=await fs.readFile('sku/engine.js','utf8'),ctx=vm.createContext({});vm.runInContext(engine,ctx);
 const catalogs=vm.runInContext('({TIP,CAT,SUB})',ctx);
@@ -45,7 +49,7 @@ template=template.replace('<details><summary>Consultar materiales cargados</summ
 template=template.replace('<div class="section-heading"><h3>Solicitudes emitidas</h3>',await fs.readFile('sku/workflow-panel.html','utf8')+'<div class="section-heading"><h3>Solicitudes emitidas</h3>');
 template=template.replace('<p id="rqDetalleNota"></p>','<p id="rqDetalleNota"></p>'+await fs.readFile('sku/workflow-document-panel.html','utf8'));
 template=template.replace('<option value="captura" selected>CAPTURA Y GENERACIÓN DE SKU</option>','<option value="ventas">VENTAS</option><option value="compras">COMPRAS</option><option value="alta" selected>ALTA DE PRODUCTOS</option>');
-template=template.replace('<option value="visualizador">VISUALIZADOR</option>','<option value="visualizador">VISUALIZADOR</option><option value="gerente">GERENTE</option><option value="almacenista">ALMACENISTA</option><option value="auxti">AUXTI</option><option value="requisicion">REQUISICIÓN</option><option value="ventasins">VentasIns</option><option value="expendios">PDV</option><option value="calidad">CALIDAD</option><option value="ventaspasteleria">VENDEDOR CAPTURA</option>');
+template=template.replace('<option value="visualizador">VISUALIZADOR</option>','<option value="visualizador">VISUALIZADOR</option><option value="gerente">GERENTE</option><option value="almacenista">ALMACENISTA</option><option value="auxti">AUXTI</option><option value="requisicion">REQUISICIÓN</option><option value="ventasins">VentasIns</option><option value="expendios">TPV</option><option value="calidad">CALIDAD</option><option value="ventaspasteleria">VENDEDOR CAPTURA</option>');
 template=template.replace('<div class="actions"><button>Guardar usuario</button>','<fieldset id="usuarioAccesos" hidden><legend id="usuarioAccesosTitulo"></legend><p id="usuarioAccesosNota" class="note"></p><div id="usuarioUbicaciones" class="grid"></div></fieldset><div class="actions"><button>Guardar usuario</button>');
 template=template.replace('<th>Perfil</th><th>Estado</th>','<th>Perfil</th><th>Ubicaciones autorizadas</th><th>Estado</th>');
 template=template.replace(/SUPER ADMINISTRADOR/g,'SUPERADMINISTRADOR').replace('Super administrador: acceso completo. Captura: altas, edición y generación de SKU. Visualizador: consulta y descarga. Desactivar un usuario bloquea su acceso.','Superadministrador: acceso completo y respaldos. Ventas: catálogo de ventas. Compras: catálogo de compras. Alta de productos: ambos catálogos, sin respaldos. Visualizador: consulta y descarga de maestros.');
@@ -64,7 +68,6 @@ if(!login.includes('id="loginOtp"'))login=login.replace('<button id="entrar">','
 if(!login.includes("codigo:document.getElementById('loginOtp')"))login=login.replace("password:document.getElementById('password').value","password:document.getElementById('password').value,codigo:document.getElementById('loginOtp').value");
 await fs.writeFile(dir+'/public/login.html',login);
 await fs.writeFile(dir+'/public/app.js',await fs.readFile('sku/date-format.js','utf8')+'\n'+engine+'\n'+await fs.readFile('sku/xlsx-browser.js','utf8')+'\n'+ui+'\n'+await fs.readFile('sku/roles-ui.js','utf8')+'\n'+await fs.readFile('sku/sales-ui.js','utf8')+'\n'+await fs.readFile('sku/requisition-ui.js','utf8')+'\n'+await fs.readFile('sku/profile-modules-ui.js','utf8')+'\n'+await fs.readFile('sku/report-ui.js','utf8')+'\n'+await fs.readFile('sku/report-pagination-ui.js','utf8')+'\n'+await fs.readFile('sku/report-export-ui.js','utf8')+'\n'+await fs.readFile('sku/workflow-ui.js','utf8')+'\n'+await fs.readFile('sku/erp-ui.js','utf8')+'\n'+await fs.readFile('sku/purchase-master-ui.js','utf8')+'\n'+await fs.readFile('sku/backup-ui.js','utf8')+'\n'+await fs.readFile('sku/images-ui.js','utf8')+'\n'+await fs.readFile('sku/admin-approvals-ui.js','utf8')+'\n'+await fs.readFile('sku/areas-ui.js','utf8')+'\n'+await fs.readFile('sku/navigation-ui.js','utf8')+'\n'+await fs.readFile('sku/commercial-entry-ui.js','utf8')+'\n'+await fs.readFile('sku/purchase-links-ui.js','utf8'));
-console.log('App servidor generada.');
 
 
 
@@ -93,7 +96,9 @@ for(const name of ['index.html','commercial.html','purchase.html','inventory.htm
 }
 
 await fs.copyFile('sku/theme-ui.js',dir+'/public/theme.js');
-await fs.copyFile('sku/workspace-menu.js',dir+'/public/workspace-menu.js');
+const seasonalArtwork={};for(const season of ['halloween','navidad'])seasonalArtwork[season]='data:image/svg+xml;base64,'+(await fs.readFile('sku/'+season+'-art.svg')).toString('base64');
+await fs.writeFile(dir+'/public/workspace-menu.js',(await fs.readFile('sku/workspace-menu.js','utf8')).replace('const seasonalArtwork={};','const seasonalArtwork='+JSON.stringify(seasonalArtwork)+';'));
+for(const artwork of ['halloween-art.svg','navidad-art.svg'])await fs.copyFile('sku/'+artwork,dir+'/public/'+artwork);
 await fs.appendFile(dir+'/public/app.js','\n'+await fs.readFile('sku/catalog-config-ui.js','utf8'));
 for(const name of ['index.html','login.html','commercial.html','purchase.html','inventory.html','enterprise.html','quality.html','crm.html','security.html','finance.html']){
  let html=await fs.readFile(dir+'/public/'+name,'utf8');
@@ -103,3 +108,5 @@ for(const name of ['index.html','login.html','commercial.html','purchase.html','
  html=html.includes('</body>')?html.replace('</body>',script+'</body>'):html.replace('</html>',script+'</html>');
  await fs.writeFile(dir+'/public/'+name,html);
 }
+
+console.log('App servidor generada con todos los temas.');

@@ -35,7 +35,7 @@ class QualityLite:
   with self.store.connect() as db:
    for id,module,code,title,state,payload in db.execute('SELECT id,module,code,title,state,payload FROM q_items'):
     counts[module]=counts.get(module,0)+1;value=json.loads(payload);due=value.get('fecha_compromiso') or value.get('proxima_revision')
-    if due and due<=today and state not in ('CERRADA','OBSOLETO','REGISTRADO'):pending.append({'id':id,'modulo':module,'codigo':code,'titulo':title,'fecha':due,'responsable':value.get('responsable') or value.get('aprobador','')})
+    if due and due<=today and state not in ('CERRADA','OBSOLETO') and (state!='REGISTRADO' or value.get('proxima_revision')):pending.append({'id':id,'modulo':module,'codigo':code,'titulo':title,'fecha':due,'responsable':value.get('responsable') or value.get('aprobador','')})
   return {'totales':counts,'vencidosPendientes':sorted(pending,key=lambda v:v['fecha'])[:100]}
  def event(self,db,id,actor,action,payload):db.execute('INSERT INTO q_events(item,actor,action,created,payload) VALUES(?,?,?,?,?)',(id,actor['email'],action,now(),json.dumps(payload,ensure_ascii=False)))
  def row(self,db,id):

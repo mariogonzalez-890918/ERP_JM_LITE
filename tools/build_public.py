@@ -10,8 +10,8 @@ No se ha certificado todavia este paquete en toda la matriz Windows.
 1. Extrae TODO el ZIP en una carpeta temporal local.
 2. Abre PowerShell como administrador en esa carpeta y ejecuta:
    powershell -NoProfile -ExecutionPolicy Bypass -File .\\install_windows.ps1 -OpenFirewall
-3. El puerto web es 8098. Define la clave de
-   mario.gonzalez@jad-ayt.com en la consola (entrada oculta).
+3. El puerto web es 8098. Define la clave de administracion
+   en la consola (entrada oculta).
 4. Abre http://NOMBRE-O-IP-DEL-SERVIDOR:PUERTO desde un navegador moderno.
 
 El paquete incluye la aplicacion, Python/SQLite y sus dependencias nativas
@@ -19,6 +19,11 @@ integrados en el EXE y Microsoft Visual C++ x64 firmado por Microsoft.
 No necesitas instalar Python, Node, Office ni SQLite en los equipos cliente.
 Se instala el programa en Program Files y los datos en ProgramData\\ERP JM Lite.
 La tarea ERP-JM-Lite arranca el servidor al encender Windows.
+Para detenerlo, en PowerShell como administrador:
+   Stop-ScheduledTask -TaskName "ERP-JM-Lite"
+Para iniciarlo otra vez:
+   Start-ScheduledTask -TaskName "ERP-JM-Lite"
+Si ejecutaste el EXE directamente, usa Ctrl+C en su consola.
 El servidor escucha en todas las interfaces IPv4, incluidas las VPN.
 El firewall opcional permite TCP 8098 para este EXE en todos los perfiles,
 incluidas redes ZeroTier, Radmin y Hamachi. La VPN debe permitir la conexion.

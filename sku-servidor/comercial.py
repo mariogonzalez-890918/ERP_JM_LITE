@@ -1,5 +1,5 @@
 from fechas import iso_date
-"""Ventas institucionales y Expendios: compañías, precios finales, documentos y caja."""
+"""Ventas institucionales y TPV: compañías, precios finales, documentos y caja."""
 import base64,collections,copy,decimal,hashlib,json,re,uuid
 from permissions import require_module
 from requisiciones import BRANCHES,Conflict,now,text
@@ -9,7 +9,7 @@ CENT=D('.01')
 ADMINS={'superadmin','auxti'}
 SUPERVISORS=ADMINS|{'gerente'}
 CHANNELS={'ventasins','expendios'}
-LISTS={'PUBLICO':'Público institucional','RUTA':'Expendio ruta','DESPACHO':'Expendio despacho'}
+LISTS={'PUBLICO':'Público institucional','RUTA':'TPV ruta','DESPACHO':'TPV despacho'}
 CAPS=['ventasins.clientes','ventasins.pedidos','ventasins.reportes','expendios.clientes','expendios.caja','expendios.reportes','maestro','precios','configurar']
 
 def dumps(v):return json.dumps(v,ensure_ascii=False,allow_nan=False)

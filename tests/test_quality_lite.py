@@ -6,6 +6,8 @@ class QualityTests(unittest.TestCase):
  def save(self,module,code='FOR-001',data=None,**extra):return self.value('/api/calidad/guardar',{'modulo':module,'codigo':code,'titulo':'Registro ficticio','datos':data or {},**extra})['id']
  def get(self,id):return self.value('/api/calidad/registros?id='+id)
  def state(self,id,state):return self.value('/api/calidad/estado',{'id':id,'revision':self.get(id)['revision'],'estado':state})
+ def test_extended_quality_modules_keep_registered_calibration_reminders(self):
+  meta=self.value('/api/calidad/registros');self.assertEqual(len(meta['modulos']),15);id=self.save('calibrations','CAL-TEST',{'equipo':'Equipo ficticio','responsable':'Responsable de prueba','fecha':'2026-01-01','proxima_revision':'2026-01-02'});self.state(id,'REGISTRADO');pending=self.value('/api/calidad/tablero')['vencidosPendientes'];self.assertIn(id,[r['id'] for r in pending]);self.assertEqual(self.call('/api/calidad/guardar',{'id':id,'modulo':'calibrations','codigo':'CAL-TEST','titulo':'Modificar cerrado','revision':self.get(id)['revision'],'datos':{}})[0],400)
  def test_approved_form_record_snapshot_and_new_version(self):
   schema=[{'id':'medida','label':'Medida','type':'numero','required':True},{'id':'resultado','label':'Resultado','type':'lista','required':True,'options':['CUMPLE','NO CUMPLE']}]
   form=self.save('forms',data={'schema':schema});self.state(form,'APROBADO')

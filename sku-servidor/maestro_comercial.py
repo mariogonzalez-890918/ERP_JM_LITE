@@ -31,8 +31,8 @@ def parse_master(content):
    if rate is not None and is_percent and '%' not in rate_value:rate*=100
    if rate is not None and rate not in (0,8,16):raise ValueError(f'Fila {n}: impuesto inválido, se permite 0%, 8% o 16%.')
    prices={key:optional_price(row.get(col,'')) for key,col in [('PUBLICO','I'),('RUTA','J'),('DESPACHO','K')]}
-   channel=norm(row.get('W',''))
-   if channel and channel not in ('INSTITUCIONALES','EXPENDIOS','AMBOS'):raise ValueError(f'Fila {n}: CANAL en W debe ser INSTITUCIONALES, EXPENDIOS o AMBOS.')
+   channel=norm(row.get('W',''));channel='EXPENDIOS' if channel=='TPV' else channel
+   if channel and channel not in ('INSTITUCIONALES','EXPENDIOS','AMBOS'):raise ValueError(f'Fila {n}: CANAL en W debe ser INSTITUCIONALES, TPV o AMBOS.')
    institutional=channel!='EXPENDIOS';expendio=channel in ('EXPENDIOS','AMBOS') if channel else norm(row.get('G')) in ('SI','S','1','TRUE','VERDADERO','X')
    unit=str(row.get('O','')).strip()
    if not unit or len(name)>300:raise ValueError(f'Fila {n}: revisa descripción y UOM en O.')

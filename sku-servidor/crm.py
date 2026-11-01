@@ -64,6 +64,8 @@ class CRM:
   company=data.get('empresa');self.scope(actor,company);id=data.get('id');title=text(data.get('titulo',''),250);stage=data.get('etapa','PROSPECTO');customer=data.get('cliente','') or ''
   if not title or stage not in STAGES:raise ValueError('Indica oportunidad y etapa válida.')
   value={'titulo':title,'etapa':stage,'importe':money(amount(data.get('importe','0'))),'contacto':text(data.get('contacto',''),250),'observaciones':text(data.get('observaciones',''),4000),'proximoSeguimiento':iso_date(data.get('proximoSeguimiento'))}
+  value['sku']=text(data.get('sku',''),80)
+  if value['sku'] and value['sku'] not in {p['sku'] for p in self.cm.products(company,actor,'ventasins')['productos']}:raise ValueError('Selecciona un SKU de ventas disponible para esta empresa.')
   with self.store.connect() as db:
    db.execute('BEGIN IMMEDIATE');old=self.item(db,id,actor) if id else None
    if old and old['empresa']!=company:raise PermissionError('Empresa de oportunidad no disponible.')

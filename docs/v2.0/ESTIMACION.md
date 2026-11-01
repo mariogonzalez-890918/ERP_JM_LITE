@@ -13,7 +13,7 @@
 | 1. Base multirrazón y accesos | Tres emisores capturados por el usuario, permisos y alcances, selector, esquema/migración y folios iniciales institucionales. | 28–44 |
 | 2. Catálogo y clientes | Alta de clientes, direcciones y condiciones por emisor; layouts, listas de precios y configuración de IVA 0/8/16 %, incluido/excluido. | 32–48 |
 | 3. Ventas institucionales | Presupuestos, plantillas, pedidos, precios históricos, condiciones, folios e impresión documento/ticket. | 32–48 |
-| 4. Expendios/TPV | Caja/sesiones, pagos registrados, folio interno, cierres, solicitudes de cancelación exclusivas AUXTI/Superadministrador y reembolsos vinculados. | 44–72 |
+| 4. TPV/TPV | Caja/sesiones, pagos registrados, folio interno, cierres, solicitudes de cancelación exclusivas AUXTI/Superadministrador y reembolsos vinculados. | 44–72 |
 | 5. Reportes y exportaciones | Dashboard, filtros/agrupación, consolidado por emisor, IVA por tasa, selección de columnas y plantillas, CSV/XLSX/PDF. | 28–44 |
 | 6. Validación y publicación | Cotejo visual Enterprise 14, pruebas de permisos/cobros/concurrencia, migración/respaldos, regresión 1.8.0, Bixolon en equipo cliente, piloto y EXE. | 36–64 |
 | **Total** | **Implementación integrada y validada** | **200–320** |

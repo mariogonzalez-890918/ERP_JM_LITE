@@ -2,7 +2,7 @@
 
 El flujo de Compras toma como referencia el [modelo de Odoo 14](https://github.com/odoo/odoo/blob/14.0/addons/purchase/models/purchase.py): cotización, pedido confirmado, recepción y registro de compra/factura del proveedor. Es una implementación propia integrada en este servidor; el registro de compra es operativo, sin timbrado CFDI ni contabilización automática.
 
-Compras comparte las razones sociales de Institucionales y Expendios. Utiliza el maestro PRODUCTOS cargado en Requisiciones y sus costos/unidades. Permite COMPRA o ENTREGA con equivalencia validada; una equivalencia desconocida o impuesto vacío requiere corrección, sin inventar cero. Los precios de Compras se capturan antes de impuesto. Los documentos conservan sus unidades, costos y equivalencia al confirmarse.
+Compras comparte las razones sociales de Institucionales y TPV. Utiliza el maestro PRODUCTOS cargado en Requisiciones y sus costos/unidades. Permite COMPRA o ENTREGA con equivalencia validada; una equivalencia desconocida o impuesto vacío requiere corrección, sin inventar cero. Los precios de Compras se capturan antes de impuesto. Los documentos conservan sus unidades, costos y equivalencia al confirmarse.
 
 Compras, Gerencia, Superadministrador, AUXTI y Almacenista capturan/confirmar pedidos y registran compras. Almacenista puede recibir según acceso. Compras, Gerencia, AUXTI y Sistemas configuran series por razón social, sucursal y tipo de documento. Los números ya emitidos permanecen reservados incluso después de cancelación o restauración. Sistemas/AUXTI asignan alcance de empresas/sucursales desde Compras → Accesos; habilitar un perfil por sí solo no asigna datos de una razón social.
 

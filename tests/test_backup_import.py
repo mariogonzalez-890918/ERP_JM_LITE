@@ -19,7 +19,7 @@ def product(name='PRODUCTO PRUEBA',**fields):return {'B':'','C':'ACTIVO','D':'1'
 
 class ModuleBackupTests(unittest.TestCase):
  def setUp(self):
-  self.tmp=tempfile.TemporaryDirectory();root=pathlib.Path(self.tmp.name);self.root=root;self.password=secrets.token_urlsafe(20);initializer.create_initials(root,self.password);shutil.copy2(ROOT/'sku-servidor/catalogos.json',root/'catalogos.json');shutil.copytree(ROOT/'sku-servidor/public',root/'public');self.context=contextlib.ExitStack()
+  self.tmp=tempfile.TemporaryDirectory();root=pathlib.Path(self.tmp.name);self.root=root;self.password=secrets.token_urlsafe(20);initializer.create_initials(root,self.password);shutil.copy2(ROOT/'sku-servidor/catalogos.json',root/'catalogos.json');shutil.copytree(ROOT/'sku-servidor/public',root/'public',ignore=shutil.ignore_patterns('*.jm-build-*'));self.context=contextlib.ExitStack()
   for module in (server,requisiciones,ventas):self.context.enter_context(patch.object(module,'ROOT',root))
   self.store=server.Store(root/'data');catalog_fixture.install(self.store);self.http=server.http.server.ThreadingHTTPServer(('127.0.0.1',0),server.create_handler(self.store));threading.Thread(target=self.http.serve_forever,daemon=True).start();self.url='http://127.0.0.1:'+str(self.http.server_port);self.admin=self.login(server.ADMIN_EMAIL)
  def tearDown(self):self.http.shutdown();self.http.server_close();self.context.close();self.tmp.cleanup()

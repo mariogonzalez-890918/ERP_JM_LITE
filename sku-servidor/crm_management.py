@@ -16,13 +16,14 @@ class CRMManagement(CRM):
    CREATE TABLE IF NOT EXISTS crm_plans(id TEXT PRIMARY KEY,company INTEGER NOT NULL,month TEXT NOT NULL,customer TEXT NOT NULL,seller TEXT NOT NULL,kind TEXT NOT NULL,revision INTEGER NOT NULL,payload TEXT NOT NULL);
    CREATE UNIQUE INDEX IF NOT EXISTS crm_month_customer ON crm_plans(company,month,customer) WHERE kind='CLIENTE';''')
    if 'basis' not in [r[1] for r in db.execute('PRAGMA table_info(crm_commissions)')]:db.execute("ALTER TABLE crm_commissions ADD COLUMN basis TEXT NOT NULL DEFAULT 'FACTURADO'")
+   if 'tax_basis' not in [r[1] for r in db.execute('PRAGMA table_info(crm_commissions)')]:db.execute("ALTER TABLE crm_commissions ADD COLUMN tax_basis TEXT NOT NULL DEFAULT 'NETO'")
  def metadata(self,actor,company):
   value=super().metadata(actor,company);value['vendedores']=[v for v in value['vendedores'] if company in self.cm.access({'email':v['email']})['empresas']]
   value['productos']=[{'sku':p['sku'],'nombre':p['nombre']} for p in self.cm.products(company,actor,'ventasins')['productos']]
   value.update({'puedeAgregarVendedores':is_internal_admin(actor),'puedeComisiones':actor['role'] in MANAGERS,'puedeTableroMensual':self.insight_allowed(actor,company),'puedeAutorizarTablero':is_internal_admin(actor)})
   if actor['role'] in MANAGERS:
-   with self.store.connect() as db:commissions={(c,s):(p,r,b) for c,s,p,r,b in db.execute('SELECT customer,seller,percentage,revision,basis FROM crm_commissions WHERE company=?',(company,))}
-   for c in value['clientes']:c['comision'],c['revisionComision'],c['baseComision']=commissions.get((c['id'],c['vendedor']),('0.00',0,'FACTURADO'))
+   with self.store.connect() as db:commissions={(c,s):(p,r,b,t) for c,s,p,r,b,t in db.execute('SELECT customer,seller,percentage,revision,basis,tax_basis FROM crm_commissions WHERE company=?',(company,))}
+   for c in value['clientes']:c['comision'],c['revisionComision'],c['baseComision'],c['impuestosComision']=commissions.get((c['id'],c['vendedor']),('0.00',0,'FACTURADO','NETO'))
   if is_internal_admin(actor):
    with self.store.connect() as db:
     value['accesosTablero']=[{'email':e,'nombre':n,'habilitado':bool(a),'revision':r or 0} for e,n,a,r in db.execute('SELECT u.email,u.name,a.enabled,a.revision FROM users u LEFT JOIN crm_dashboard_access a ON a.email=u.email AND a.company=? WHERE u.active=1 AND u.email NOT IN (SELECT email FROM app_internal_admins) ORDER BY u.name',(company,))]
@@ -38,14 +39,15 @@ class CRMManagement(CRM):
  def commission(self,data,actor):
   if actor['role'] not in MANAGERS:raise PermissionError('Las comisiones son privadas para Gerencia y Superadministrador.')
   company=data.get('empresa');self.scope(actor,company);customer=data.get('cliente');seller=data.get('vendedor');rate=amount(data.get('porcentaje'))
-  basis=data.get('base','FACTURADO')
+  basis=data.get('base','FACTURADO');tax_basis=data.get('impuestos','NETO')
+  if tax_basis not in ('NETO','BRUTO'):raise ValueError('Selecciona antes de impuestos o con impuestos.')
   if rate>100 or rate!=Decimal(money(rate)) or basis not in ('FACTURADO','COBRADO'):raise ValueError('Indica porcentaje de 0 a 100 con dos decimales y base FACTURADO o COBRADO.')
   with self.store.connect() as db:
    db.execute('BEGIN IMMEDIATE');self.cm.customer(db,customer,company,actor);assignment=db.execute('SELECT seller FROM cm_customer_assignments WHERE customer=?',(customer,)).fetchone()
-   if not assignment or assignment[0]!=seller:raise ValueError('Sistemas debe asignar primero el cliente al vendedor seleccionado.')
+   if not assignment or assignment[0]!=seller:raise ValueError('Gerencia o Superadministrador deben asignar primero el cliente al vendedor seleccionado.')
    old=db.execute('SELECT revision FROM crm_commissions WHERE company=? AND customer=? AND seller=?',(company,customer,seller)).fetchone()
    if data.get('revision',0)!=(old[0] if old else 0):raise Conflict('La comisión cambió. Actualiza antes de guardar.')
-   db.execute('INSERT INTO crm_commissions(company,customer,seller,percentage,revision,basis) VALUES(?,?,?,?,1,?) ON CONFLICT(company,customer,seller) DO UPDATE SET percentage=excluded.percentage,basis=excluded.basis,revision=crm_commissions.revision+1',(company,customer,seller,money(rate),basis))
+   db.execute('INSERT INTO crm_commissions(company,customer,seller,percentage,revision,basis,tax_basis) VALUES(?,?,?,?,1,?,?) ON CONFLICT(company,customer,seller) DO UPDATE SET percentage=excluded.percentage,basis=excluded.basis,tax_basis=excluded.tax_basis,revision=crm_commissions.revision+1',(company,customer,seller,money(rate),basis,tax_basis))
    # La bitácora general no expone porcentajes a otros perfiles.
    self.cm.audit(db,actor,company,'comision_configurada',{'cliente':customer,'vendedor':seller})
   return {'ok':True}
@@ -58,19 +60,19 @@ class CRMManagement(CRM):
    for id,customer,reference,issued,currency,total,payload in db.execute("SELECT id,party,reference,issued,currency,amount,payload FROM fn_accounts WHERE company=? AND book='CXC' AND cancelled=0",(company,)):
     value=json.loads(payload);rule=value.get('comision',{});email=rule.get('vendedor','')
     if not email or seller and email!=seller or value.get('tipoDocumento','FACTURA')!='FACTURA':continue
-    rate=Decimal(rule.get('porcentaje','0'));basis=rule.get('base','FACTURADO');invoice_base=Decimal(value.get('baseComision',total));paid=Decimal(0)
+    rate=Decimal(rule.get('porcentaje','0'));basis=rule.get('base','FACTURADO');invoice_base=Decimal(total if rule.get('impuestos','NETO')=='BRUTO' else value.get('baseComision',total));paid=Decimal(0)
     for kind,payment,date in db.execute('SELECT kind,amount,date FROM fn_payments WHERE account=? AND cancelled=0',(id,)):
      if since<=date<=until:paid+=Decimal(payment)*(1 if kind=='ABONO' else -1)
     base=invoice_base if basis=='FACTURADO' and since<=issued<=until else paid*invoice_base/Decimal(total) if basis=='COBRADO' else Decimal(0)
     if not base:continue
     client=db.execute('SELECT payload FROM cm_customers WHERE id=?',(customer,)).fetchone();person=db.execute('SELECT name FROM users WHERE email=?',(email,)).fetchone();commission=Decimal(money(base*rate/100));totals[currency]=totals.get(currency,Decimal(0))+commission
-    rows.append({'cuenta':id,'referencia':reference,'cliente':json.loads(client[0]).get('nombre',customer) if client else customer,'vendedor':email,'nombreVendedor':person[0] if person else email,'fechaFactura':issued,'moneda':currency,'regla':basis,'porcentaje':money(rate),'facturado':money(total),'cobradoPeriodo':money(paid),'baseComision':money(base),'comision':money(commission)})
+    rows.append({'cuenta':id,'referencia':reference,'cliente':json.loads(client[0]).get('nombre',customer) if client else customer,'vendedor':email,'nombreVendedor':person[0] if person else email,'fechaFactura':issued,'moneda':currency,'regla':basis,'impuestos':('Con impuestos' if rule.get('impuestos','NETO')=='BRUTO' else 'Antes de impuestos'),'porcentaje':money(rate),'facturado':money(total),'cobradoPeriodo':money(paid),'baseComision':money(base),'comision':money(commission)})
   return {'registros':rows,'desde':since,'hasta':until,'totalesPorMoneda':{c:money(v) for c,v in totals.items()}}
  def commission_export(self,query,actor,format):
   from comercial_print import report_csv,report_xlsx,report_pdf
-  result=self.commission_report(query,actor);keys=['referencia','cliente','nombreVendedor','fechaFactura','moneda','regla','porcentaje','facturado','cobradoPeriodo','baseComision','comision']
-  rows=[['Referencia','Cliente','Vendedor','Fecha factura','Moneda','Base','Porcentaje','Facturado','Cobrado periodo','Base comisión','Comisión'],*[[r[k] for k in keys] for r in result['registros']]]
-  rows.extend([['TOTAL',currency,'','','','','','','','',value] for currency,value in result['totalesPorMoneda'].items()])
+  result=self.commission_report(query,actor);keys=['referencia','cliente','nombreVendedor','fechaFactura','moneda','regla','impuestos','porcentaje','facturado','cobradoPeriodo','baseComision','comision']
+  rows=[['Referencia','Cliente','Vendedor','Fecha factura','Moneda','Base','Impuestos','Porcentaje','Facturado','Cobrado periodo','Base comisión','Comisión'],*[[r[k] for k in keys] for r in result['registros']]]
+  rows.extend([['TOTAL',currency,'','','','','','','','','',value] for currency,value in result['totalesPorMoneda'].items()])
   if format=='pdf':return report_pdf(rows,'ERP JM · Comisiones',subtitle=result['desde']+' a '+result['hasta']+'. Reglas históricas de CXC; cobros netos de reembolsos. Cada moneda se totaliza por separado.'),'application/pdf'
   if format=='csv':return report_csv(rows),'text/csv; charset=utf-8'
   return report_xlsx(rows,'COMISIONES'),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'

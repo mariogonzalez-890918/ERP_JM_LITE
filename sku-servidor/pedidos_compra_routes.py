@@ -24,7 +24,7 @@ class PurchaseAPI:
    rows=[['ID_MATERIAL','SKU','DESCRIPCION','UM_COMPRA','UM_ENTREGA','FACTOR','PRECIO_COMPRA_ANTES_IMPUESTO','COSTO_ENTREGA','IMPUESTO']]
    for m in po.materials(actor)['materiales']:rows.append([m['materialId'],m['sku'],m['nombre'],m['unidadCompra'],m['unidadEntrega'],m['factor'],m['precioCompra'],m['costoEntrega'],m['impuesto']])
    return report_xlsx(rows,'MATERIALES'),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-  if action=='materiales':return po.materials(actor)
+  if action=='materiales':return po.company_materials(actor,company) if company else po.materials(actor)
   if action=='requisicion':return po.request_detail(company,branch,id,actor)
   if action=='requisiciones':return po.req_sources(company,branch,actor)
   if action=='series':return po.sequences(company,branch,actor)

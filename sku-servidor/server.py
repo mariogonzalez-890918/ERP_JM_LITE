@@ -333,6 +333,8 @@ def create_handler(store):
      if path=='/api/empresa/taxonomia':result=store.taxonomy.get(actor)
      elif path=='/api/seguridad/estado':result=store.security.status(actor)
      elif path=='/api/empresa/config':result=enterprise.get(actor)
+     elif path=='/api/empresa/impuestos':result=enterprise.taxes(int(q.get('empresa','0')),actor)
+     elif path=='/api/empresa/logo':result=enterprise.company_logo(int(q.get('empresa','0')),actor)
      elif path=='/api/empresa/modulos':result=enterprise.contract(actor)
      elif path=='/api/crm/planes':result=crm.plans(q,actor)
      elif path=='/api/crm/reporte-comisiones':result=crm.commission_report(q,actor)
@@ -498,6 +500,8 @@ def create_handler(store):
      if self.path not in actions:raise ValueError('Acción de seguridad no disponible.')
      return self.reply(200,actions[self.path](data,actor))
     if self.path.startswith(('/api/empresa/','/api/calidad/','/api/crm/')):
+     if self.path=='/api/empresa/impuestos':return self.reply(200,enterprise.save_tax(self.read_body(),actor))
+     if self.path=='/api/empresa/logo':return self.reply(200,enterprise.save_logo(self.read_body(),actor))
      if self.path=='/api/empresa/edicion':return self.reply(200,enterprise.save_edition(self.read_body(),actor))
      if self.path=='/api/empresa/modulos':return self.reply(200,enterprise.save_contract(self.read_body(),actor))
      crm_actions={'/api/crm/vendedores':crm.add_seller,'/api/crm/comisiones':crm.commission,'/api/crm/acceso-tablero':crm.grant_dashboard,'/api/crm/planes':crm.save_plan}

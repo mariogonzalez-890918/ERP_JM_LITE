@@ -1,9 +1,9 @@
 """Empresa, activación privada y restablecimiento integral del producto comercial."""
-import contextlib,datetime,hashlib,hmac,json,pathlib,re,secrets,sqlite3
+import base64,contextlib,datetime,hashlib,hmac,io,json,pathlib,re,secrets,sqlite3
 from app_info import ADMIN_EMAIL,is_internal_admin
 from requisiciones import Conflict,now,text
 from sucursales import BRANCHES,save_branch
-PRESERVED={'sku_taxonomy','app_internal_admins','user_2fa','users','sessions','role_modules','permission_features','app_branches','app_company','app_license','app_audit','app_meta','cm_companies','cm_revision','cm_sequences','cm_sequence_registry','req_branches','req_series_registry','req_areas','req_report_features','req_reports','sales_features','po_settings','po_features','inv_features','inv_concepts'}
+PRESERVED={'app_taxes','app_product_taxes','sku_taxonomy','app_internal_admins','user_2fa','users','sessions','role_modules','permission_features','app_branches','app_company','app_license','app_audit','app_meta','cm_companies','cm_revision','cm_sequences','cm_sequence_registry','req_branches','req_series_registry','req_areas','req_report_features','req_reports','sales_features','po_settings','po_features','inv_features','inv_concepts'}
 
 class Enterprise:
  def __init__(self,store):
@@ -62,6 +62,56 @@ class Enterprise:
    if data.get('revision')!=rev:raise Conflict('La empresa cambió. Actualiza antes de guardar.')
    db.execute('UPDATE app_company SET revision=revision+1,payload=? WHERE id=1',(json.dumps(value,ensure_ascii=False),));self.audit(db,actor,'empresa_guardada',{'revision':rev+1})
   return {'ok':True}
+ def taxes(self,company,actor):
+  self.admin(actor)
+  # Valida existencia y acceso con la misma política de razones sociales.
+  self.company_logo(company,actor)
+  from impuestos import listed
+  with self.store.connect() as db:
+   products=[{'sku':s,'nombre':json.loads(p).get('nombre',''),'ambito':'ventas'} for s,p in db.execute('SELECT sku,payload FROM cm_products')]
+   products += [{'sku':v.get('sku',''),'nombre':v.get('nombre',''),'ambito':'compras'} for p, in db.execute('SELECT payload FROM req_materials') for v in [json.loads(p)] if v.get('sku')]
+   links=[{'ambito':s,'sku':k,'impuesto':t,'revision':r} for s,k,t,r in db.execute('SELECT scope,sku,tax,revision FROM app_product_taxes WHERE company=?',(company,))]
+   return {'impuestos':listed(db,company),'productos':products,'vinculos':links,'puedeConfigurar':actor['role']=='superadmin'}
+ def save_tax(self,data,actor):
+  if actor['role']!='superadmin':raise PermissionError('Solo Superadministrador configura impuestos.')
+  from impuestos import save,link
+  with self.store.atomic() as db:
+   self.company_logo(data.get('empresa'),actor)
+   result=(link if data.get('vincular') is True else save)(db,data)
+   self.audit(db,actor,'impuesto_empresa_configurado',{'empresa':data['empresa'],'vinculo':data.get('vincular') is True})
+  return result
+ def company_logo(self,company,actor):
+  if type(company) is not int or company<=0:raise ValueError('Selecciona una razón social.')
+  with self.store.connect() as db:
+   if actor['role'] not in ('superadmin','auxti'):
+    access=db.execute('SELECT payload FROM cm_access WHERE email=?',(actor['email'],)).fetchone()
+    if not access or company not in json.loads(access[0]).get('empresas',[]):raise PermissionError('No tienes acceso a esta razón social.')
+   co=db.execute('SELECT payload FROM cm_companies WHERE id=?',(company,)).fetchone()
+   if not co or json.loads(co[0]).get('eliminada'):raise ValueError('Razón social no disponible.')
+   row=db.execute("SELECT value FROM app_meta WHERE key=?",('company_logo:'+str(company),)).fetchone()
+  return json.loads(row[0]) if row else {'revision':0,'imagen':''}
+ def save_logo(self,data,actor):
+  if actor['role']!='superadmin':raise PermissionError('Solo Superadministrador modifica los logos de las empresas.')
+  from PIL import Image,ImageOps,UnidentifiedImageError
+  company=data.get('empresa')
+  if type(company) is not int or company<=0:raise ValueError('Selecciona una razón social.')
+  encoded=data.get('contenido','');image=''
+  if not isinstance(encoded,str) or len(encoded)>2800000:raise ValueError('Selecciona un PNG o JPG de hasta 2 MB.')
+  if encoded:
+   try:
+    raw=base64.b64decode(encoded,validate=True)
+    if len(raw)>2*1024*1024:raise ValueError('El logo supera 2 MB.')
+    with Image.open(io.BytesIO(raw)) as source:
+     if source.format not in ('PNG','JPEG') or source.width*source.height>16000000:raise ValueError('Usa PNG o JPG de hasta 16 millones de píxeles.')
+     source.load();clean=ImageOps.exif_transpose(source).convert('RGBA');clean.thumbnail((800,400));out=io.BytesIO();clean.save(out,format='PNG');image='data:image/png;base64,'+base64.b64encode(out.getvalue()).decode()
+   except (UnidentifiedImageError,OSError,Image.DecompressionBombError,ValueError) as error:raise ValueError('Logo inválido. Usa una imagen PNG o JPG de hasta 2 MB.') from error
+  with self.store.atomic() as db:
+   old=self.company_logo(company,actor)
+   if data.get('revision')!=old['revision']:raise Conflict('El logo cambió. Actualiza antes de guardar.')
+   value={'revision':old['revision']+1,'imagen':image}
+   db.execute('INSERT INTO app_meta VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',('company_logo:'+str(company),json.dumps(value)))
+   self.audit(db,actor,'logo_empresa_guardado',{'empresa':company,'conLogo':bool(image)})
+  return {'ok':True,**value}
  def activate(self,data,actor):
   self.owner(actor);token=data.get('token')
   if not isinstance(token,str) or not 16<=len(token)<=250:raise ValueError('Token de activación inválido.')

@@ -22,11 +22,11 @@ def amount(v,positive=False):
  except (decimal.InvalidOperation,TypeError,ValueError):raise ValueError('Cantidad o importe inválido; máximo 999999999 y seis decimales.')
 def money(v):return format(D(v).quantize(CENT,rounding=decimal.ROUND_HALF_UP),'f')
 def fingerprint(data):return hashlib.sha256(json.dumps(data,sort_keys=True,ensure_ascii=False,allow_nan=False).encode()).hexdigest()
-def tax_name(rate):return 'PENDIENTE' if rate is None else 'IEPS' if D(str(rate))==8 else 'IVA' if D(str(rate))==16 else 'SIN IVA'
+def tax_name(rate):return 'PENDIENTE' if rate is None else 'IEPS' if D(str(rate))==8 else 'IVA' if D(str(rate))==16 else 'SIN IVA' if D(str(rate))==0 else 'IMPUESTO'
 
 def tax_line(quantity,price,rate,discount='0'):
  q=amount(quantity,True);p=amount(price);r=amount(rate);d=amount(discount)
- if r not in (D(0),D(8),D(16)) or d>100:raise ValueError('Impuesto permitido: 0% sin IVA, 8% IEPS o 16% IVA. Descuento de 0 a 100 %.')
+ if r>100 or d>100:raise ValueError('Impuesto permitido: 0% sin IVA, 8% IEPS o 16% IVA. Descuento de 0 a 100 %.')
  gross=(q*p*(1-d/100)).quantize(CENT,rounding=decimal.ROUND_HALF_UP)
  net=(gross/(1+r/100)).quantize(CENT,rounding=decimal.ROUND_HALF_UP)
  return {'cantidad':format(q,'f'),'precio':format(p,'f'),'iva':format(r,'f'),'descuento':format(d,'f'),'base':money(net),'impuesto':money(gross-net),'total':money(gross),'incluyeIva':r==16,'incluyeImpuestos':True,'tipoImpuesto':tax_name(r)}
@@ -35,6 +35,8 @@ class CommercialStore:
  def __init__(self,store):
   self.store=store
   with store.connect() as db:
+   from impuestos import initialize
+   initialize(db)
    db.executescript('''
     CREATE TABLE IF NOT EXISTS cm_companies(id INTEGER PRIMARY KEY AUTOINCREMENT,revision INTEGER NOT NULL,payload TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS cm_access(email TEXT PRIMARY KEY,payload TEXT NOT NULL,revision INTEGER NOT NULL);
@@ -166,6 +168,9 @@ class CommercialStore:
   q=query.strip().upper();result=[]
   for sku,p,rev in rows:
    product={'sku':sku,'revision':rev,**json.loads(p)}
+   from impuestos import configured
+   with self.store.connect() as db:tax=configured(db,company,'ventas',sku)
+   if tax:product.update(tax)
    if channel=='ventasins' and not product.get('institucional',True) or channel=='expendios' and not product.get('expendio'):continue
    if q and q not in (sku+' '+product['nombre']).upper():continue
    if not any((key,sku) in pmap for key in LISTS):continue
@@ -392,6 +397,9 @@ class CommercialStore:
    sku=line.get('sku');row=db.execute('SELECT payload,revision FROM cm_products WHERE sku=?',(sku,)).fetchone()
    if not row:raise ValueError('SKU no encontrado: '+str(sku))
    product=json.loads(row[0])
+   from impuestos import configured
+   tax=configured(db,company,'ventas',sku)
+   if tax:product.update(tax)
    if not product.get('activo') or channel=='expendios' and not product.get('expendio') or channel=='ventasins' and not product.get('institucional',True):raise ValueError('Producto no disponible para este canal: '+sku)
    if product.get('iva') is None:raise ValueError('Completa el IVA pendiente del producto '+sku+' antes de venderlo.')
    price=db.execute('SELECT payload,revision FROM cm_prices WHERE company=? AND list=? AND sku=? AND customer=?',(company,listing,sku,customer['id'] if customer and channel=='ventasins' else '')).fetchone()
@@ -400,7 +408,7 @@ class CommercialStore:
    price_value=json.loads(price[0]);unit_price=line.get('precio',price_value['precio']) if channel=='ventasins' and actor['role']!='ventaspasteleria' else price_value['precio']
    if channel=='expendios' and (line.get('precioVisto') is not None and amount(line['precioVisto'])!=amount(unit_price) or line.get('ivaVisto') is not None and amount(line['ivaVisto'])!=amount(product['iva'])):raise Conflict('Cambió el precio o IVA de '+sku+'. Actualiza los productos y revisa el total antes de cobrar.')
    value=tax_line(line.get('cantidad'),unit_price,product['iva'],line.get('descuento','0') if channel=='ventasins' and actor['role']!='ventaspasteleria' else '0')
-   result.append({'sku':sku,'nombre':product['nombre'],'unidad':product['unidad'],'nota':text(line.get('nota',''),500),'revisionProducto':row[1],'revisionPrecio':price[1],**value})
+   result.append({'sku':sku,'nombre':product['nombre'],'unidad':product['unidad'],'nota':text(line.get('nota',''),500),'revisionProducto':row[1],'revisionPrecio':price[1],**value,**({'impuestoId':tax['impuestoId'],'tipoImpuesto':tax['nombreImpuesto']} if tax else {})})
   return {'empresa':company,'emisor':issuer,'sucursal':branch,'cliente':customer,'lista':listing,'partidas':result,'observaciones':text(data.get('observaciones',''),10000),'condiciones':text(data.get('condiciones',''),2000),'base':money(sum(D(r['base']) for r in result)),'impuesto':money(sum(D(r['impuesto']) for r in result)),'total':money(sum(D(r['total']) for r in result))}
  def document(self,db,id,actor,channel):
   self.module(actor,channel);row=db.execute('SELECT company,channel,creator,box,revision,payload FROM cm_documents WHERE id=?',(id,)).fetchone()

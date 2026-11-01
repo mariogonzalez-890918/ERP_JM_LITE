@@ -3,6 +3,18 @@ import test_backup_import as fixtures
 
 class EnterpriseTests(unittest.TestCase):
  setUp=fixtures.ModuleBackupTests.setUp;tearDown=fixtures.ModuleBackupTests.tearDown;call=fixtures.ModuleBackupTests.call;value=fixtures.ModuleBackupTests.value;login=fixtures.ModuleBackupTests.login
+ def test_logos_are_per_company_validated_private_and_revisioned(self):
+  import io
+  from PIL import Image
+  companies=[self.value('/api/comercial/empresas',{'nombre':name,'sucursales':['CENTRAL']})['id'] for name in ('Empresa uno','Empresa dos')]
+  out=io.BytesIO();Image.new('RGB',(40,20),'purple').save(out,format='PNG');encoded=base64.b64encode(out.getvalue()).decode()
+  data={'empresa':companies[0],'revision':0,'contenido':encoded};saved=self.value('/api/empresa/logo',data)
+  self.assertTrue(saved['imagen'].startswith('data:image/png;base64,'));self.assertEqual(self.value('/api/empresa/logo?empresa='+str(companies[1]))['imagen'],'')
+  self.assertEqual(self.call('/api/empresa/logo',data)[0],409)
+  self.assertEqual(self.call('/api/empresa/logo',{**data,'revision':1,'contenido':base64.b64encode(b'<svg/>').decode()})[0],400)
+  self.value('/api/users',{'email':'reader@example.test','name':'Consulta','role':'ventas','password':self.password,'active':True});reader=self.login('reader@example.test')
+  self.assertEqual(self.call('/api/empresa/logo?empresa='+str(companies[0]),actor=reader)[0],403);self.assertEqual(self.call('/api/empresa/logo',data,reader)[0],403)
+  self.value('/api/empresa/logo',{**data,'revision':1,'contenido':''});self.assertEqual(self.value('/api/empresa/logo?empresa='+str(companies[0]))['imagen'],'')
  def test_edition_owner_only_and_area_layout_review_is_atomic(self):
   self.value('/api/users',{'email':'aux@example.test','name':'Auxiliar','role':'auxti','password':self.password,'active':True});aux=self.login('aux@example.test')
   self.assertEqual(self.call('/api/empresa/edicion',{'edicion':'avanzada'},aux)[0],403);self.value('/api/empresa/edicion',{'edicion':'avanzada'});self.assertEqual(self.value('/api/me')['app']['edicion']['nombre'],'Avanzada')

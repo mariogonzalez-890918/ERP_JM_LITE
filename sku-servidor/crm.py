@@ -35,9 +35,9 @@ class CRM:
    customers=self.cm.customers(company,actor,'ventasins')['clientes'];assignments={c:(s,r) for c,s,r in db.execute('SELECT customer,seller,revision FROM cm_customer_assignments')}
   for customer in customers:
    seller,revision=assignments.get(customer['id'],('',0));customer.update({'vendedor':seller,'revisionAsignacion':revision})
-  return {'clientes':customers,'vendedores':sellers,'etapas':STAGES,'puedeAgregarClientes':actor['role'] in MANAGERS,'puedeAsignar':is_internal_admin(actor),'vistaGlobal':actor['role'] in MANAGERS}
+  return {'clientes':customers,'vendedores':sellers,'etapas':STAGES,'puedeAgregarClientes':actor['role'] in MANAGERS,'puedeAsignar':actor['role'] in MANAGERS,'vistaGlobal':actor['role'] in MANAGERS}
  def assign(self,data,actor):
-  if not is_internal_admin(actor):raise PermissionError('Solo las cuentas internas de Sistemas asignan o reasignan clientes.')
+  if actor['role'] not in MANAGERS:raise PermissionError('Solo Gerencia y Superadministrador asignan o reasignan clientes.')
   company=data.get('empresa');self.scope(actor,company);customer=data.get('cliente');seller=data.get('vendedor','')
   with self.store.connect() as db:
    db.execute('BEGIN IMMEDIATE');self.cm.customer(db,customer,company,actor)

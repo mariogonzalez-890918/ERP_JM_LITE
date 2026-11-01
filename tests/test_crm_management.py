@@ -30,5 +30,9 @@ class CRMManagementTests(unittest.TestCase):
   query='?empresa='+str(company)+'&desde=2026-11-01&hasta=2026-11-30';result=self.c.value('/api/crm/reporte-comisiones'+query);self.assertEqual(result['totalesPorMoneda'],{'MXN':'180.00'});self.assertEqual({r['regla'] for r in result['registros']},{'FACTURADO','COBRADO'});self.assertEqual(next(r for r in result['registros'] if r['cuenta']==first)['porcentaje'],'10.00')
   for suffix,signature in [('excel',b'PK'),('pdf',b'%PDF-'),('csv',b'\xef\xbb\xbf')]:
    path='/api/crm/comisiones-'+suffix+query;self.assertEqual(self.c.call(path,actor=self.c.actors['uno'])[0],403);self.assertTrue(self.c.call(path)[1].startswith(signature))
+  self.c.value('/api/crm/comisiones',{**rate,'porcentaje':'10','base':'COBRADO','impuestos':'BRUTO','revision':2})
+  third=self.c.value('/api/finanzas/cuentas',{**account,'referencia':'COBRADO-CON-IMPUESTOS'})['id']
+  self.c.value('/api/finanzas/pagos',{'cuenta':third,'tipo':'ABONO','importe':'580','fecha':'2026-11-10','referencia':'Pago con impuestos','metodo':'TRANSFERENCIA','revision':1,'clave':uuid.uuid4().hex})
+  result=self.c.value('/api/crm/reporte-comisiones'+query);self.assertEqual(result['totalesPorMoneda'],{'MXN':'238.00'});row=next(r for r in result['registros'] if r['cuenta']==third);self.assertEqual(row['comision'],'58.00');self.assertEqual(row['impuestos'],'Con impuestos')
 
 if __name__=='__main__':unittest.main()

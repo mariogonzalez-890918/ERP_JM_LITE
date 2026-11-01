@@ -152,6 +152,7 @@
 !/sku-servidor/public/finance.html
 !/sku-servidor/public/finance.js
 !/tests/test_finance.py
+!/tests/test_company_taxes.py
 !/tests/test_crm_management.py
 !/tools/provision_activation.py
 !/sku-servidor/public/crm.html

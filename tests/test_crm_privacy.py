@@ -11,9 +11,10 @@ class CRMPrivacyTests(unittest.TestCase):
  def assign(self,name,revision):return self.value('/api/crm/asignar',{'empresa':self.company,'cliente':self.customer,'vendedor':name+'@example.test','revision':revision})
  def clients(self,actor):return self.value('/api/comercial/clientes?empresa='+str(self.company),actor=actor)['clientes']
  def opportunity(self,actor,**fields):return self.value('/api/crm/oportunidades',{'empresa':self.company,'cliente':self.customer,'titulo':'Seguimiento confidencial ficticio','etapa':'PROSPECTO','importe':'150',**fields},actor)['id']
- def test_customers_are_scoped_and_only_system_can_assign(self):
+ def test_customers_are_scoped_and_managers_can_assign(self):
   self.assertEqual(len(self.clients(self.actors['uno'])),1);self.assertEqual(self.clients(self.actors['dos']),[]);self.assertEqual(self.clients(self.actors['aux']),[]);self.assertEqual(len(self.clients(self.actors['gerente'])),1)
-  for name in ('uno','dos','gerente','aux'):self.assertEqual(self.call('/api/crm/asignar',{'empresa':self.company,'cliente':self.customer,'vendedor':'dos@example.test','revision':1},self.actors[name])[0],403)
+  for name in ('uno','dos','aux'):self.assertEqual(self.call('/api/crm/asignar',{'empresa':self.company,'cliente':self.customer,'vendedor':'dos@example.test','revision':1},self.actors[name])[0],403)
+  self.value('/api/crm/asignar',{'empresa':self.company,'cliente':self.customer,'vendedor':'dos@example.test','revision':1},self.actors['gerente']);self.assertEqual(self.clients(self.actors['uno']),[]);self.assertEqual(len(self.clients(self.actors['dos'])),1)
   self.assertEqual(self.call('/api/comercial/clientes',{'empresa':self.company,'nombre':'No permitido'},self.actors['uno'])[0],403)
  def test_followups_dashboard_and_reassignment_revoke_old_access(self):
   id=self.opportunity(self.actors['uno']);path='/api/crm/oportunidades?empresa='+str(self.company)

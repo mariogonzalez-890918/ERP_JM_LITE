@@ -28,7 +28,7 @@ Layouts y cargas presenta archivos por módulo e instrucciones de destino, respe
 
 La vista previa ejecuta y valida la operación completa en una transacción que se revierte. Aplicar exige la misma huella de archivo y base; una falla revierte todos los destinos. La revisión no guarda productos parciales. Se requieren clasificaciones configuradas, unidad, impuestos y precios del canal.
 
-Solicitud para la siguiente etapa: Sistemas debe seleccionar los módulos de destino del SKU (Compras y Almacenes para compra; Ventas, CRM, Pedidos institucionales y PDV para venta), y habilitar los módulos adquiridos por cada instalación. Los permisos actuales por perfil no sustituyen ese control de módulos contratados. El piloto todavía no implementa esa selección ni el licenciamiento por módulo.
+Sistemas configura los módulos adquiridos desde Menú de aplicaciones / Módulos contratados. Se aplica en servidor a cada sesión: el perfil puede acceder solo a la intersección entre sus permisos y lo contratado. Las cuentas internas conservan acceso de configuración. El instalador activa `require_module_contract=true`; hasta configurar el contrato, los usuarios operativos no reciben módulos. La selección explícita de destinos SKU adicionales sigue pendiente; las cargas actuales enlazan Compras con materiales/almacenes y Ventas con los canales del archivo.
 
 Calidad cuenta con layouts de Documentos, Formatos, Registros, Auditorías, No conformidades y Acciones correctivas. Los formatos usan una fila por campo; los registros una fila por valor, indicando formato y versión aprobada. Los layouts de proveedores, clientes, precios e inventarios se aplican desde sus importadores específicos. Los de configuración sirven como guía de captura en sus pantallas.
 
@@ -48,7 +48,25 @@ Gerencia y Sistemas consultan el conjunto y pueden agregar clientes. Solo las cu
 
 El tablero muestra prospectos/oportunidades, ganadas, pedidos, importe de pedidos, presupuestos, cartera abierta y seguimientos pendientes. Ventas cobradas PDV incluye solamente operaciones pagadas; los pedidos institucionales no se cuentan como ingreso cobrado. Se respetan empresas y módulos autorizados.
 
-Pendientes del análisis CRM: contactos múltiples por cuenta, campañas, adjuntos comerciales, reglas de comisión y conexión a facturación/cobranza. No se envían correos automáticamente al registrar un seguimiento.
+CRM incorpora alta de vendedor por Sistemas con acceso a la empresa seleccionada. Los presupuestos mensuales agrupan clientes, proyectos y pendientes, con meta, facturación real capturada, condiciones de pago, pedidos, observaciones, gráficas y CSV. Sistemas autoriza a usuarios específicos la consulta/captura del tablero mensual; esa autorización conserva el aislamiento de cartera. Gerencia y Sistemas tienen vista global.
+
+Solo Gerencia y Superadministrador ven y configuran porcentajes por cliente/vendedor, con base sobre facturado o sobre cobrado. Cada factura CXC guarda la regla vigente al registrarse. Los reportes usan esas reglas históricas, consideran cobros parciales y reembolsos, y separan las monedas. La base de comisión puede capturarse distinta al total de factura; los cobros se prorratean contra esa base. Otros cargos y saldos iniciales no generan comisión. Hay filtros por empresa, vendedor y periodo, con exportación Excel, PDF y CSV. Las API y exportaciones rechazan a los demás perfiles. El presupuesto mensual capturado no se usa como factura para calcular comisiones.
+
+Pendientes del análisis CRM: contactos múltiples por cuenta, campañas y adjuntos comerciales. No se envían correos automáticamente al registrar un seguimiento.
+
+## Cuentas y pagos
+
+Compras dispone de CXP, cargos, conceptos por empresa y pagos a proveedores. Una compra registrada puede ligarse una sola vez y exige que coincidan proveedor, empresa, moneda e importe. Ventas dispone de CXC, saldos de clientes, cobros y reembolsos. Las cuentas registran referencia, fecha, vencimiento, moneda, tipo y observaciones. Los conceptos inician vacíos y se pueden agregar o renombrar mediante API.
+
+Los pagos son parciales e idempotentes, con revisión de concurrencia y control del saldo. No se aceptan sobrepagos; los reembolsos no exceden lo aplicado. Gerencia/Superadministrador pueden cancelar con motivo, conservando movimientos y bitácora. CXP también permite operar al perfil Compras; CXC se reserva a Gerencia/Superadministrador y se respetan empresas asignadas. Los saldos se totalizan por moneda. No se ejecutan transferencias bancarias ni se timbran CFDI desde estos registros.
+
+## Menú, calidad y catálogos iniciales
+
+El menú de aplicaciones agrupa Comercial, Compras, Almacenes, Calidad y Administración, con búsqueda y permisos. Conserva la identidad JM y los temas existentes. Sistemas configura la edición Lite o Avanzada; los módulos se contratan explícitamente, sin inferir un paquete de permisos por el nombre de la edición.
+
+Calidad añade inspecciones/liberación, riesgos, calibraciones, mantenimiento, capacitación, quejas/devoluciones, evaluación de proveedores, control de cambios y mejora continua. Incluye panel de pendientes y estructuras opcionales de formatos para recepción, auditoría, equipos y quejas. No se precargan registros empresariales.
+
+Las áreas solicitantes nuevas también inician vacías. Se agregan manualmente o mediante layout XLSX con revisión y aplicación atómica. Las pantallas de alta SKU incluyen configuración de tipos, categorías, subcategorías y PDV; los selectores vacíos muestran el paso requerido y bloquean la creación hasta configurar sus clasificaciones.
 
 ## Movimientos, restablecimiento y apariencia
 

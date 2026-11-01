@@ -21,6 +21,22 @@ class Enterprise:
   with self.store.connect() as db:row=db.execute("SELECT value FROM app_meta WHERE key='edition'").fetchone()
   code=row[0] if row and row[0] in ('lite','avanzada') else 'lite'
   return {'codigo':code,'nombre':'Avanzada' if code=='avanzada' else 'Lite'}
+ def contract(self,actor):
+  self.owner(actor)
+  from permissions import MODULES
+  with self.store.connect() as db:row=db.execute("SELECT value FROM app_meta WHERE key='module_contract'").fetchone()
+  value=json.loads(row[0]) if row else {'revision':0,'modules':[] if getattr(self.store,'enforce_contract',False) else list(MODULES)}
+  return {**value,'disponibles':MODULES,'configurado':bool(row)}
+ def save_contract(self,data,actor):
+  self.owner(actor)
+  from permissions import MODULES
+  modules=data.get('modules')
+  if not isinstance(modules,list) or len(set(modules))!=len(modules) or any(not isinstance(m,str) or m not in MODULES for m in modules):raise ValueError('Selecciona módulos válidos.')
+  with self.store.connect() as db:
+   db.execute('BEGIN IMMEDIATE');old=self.contract(actor)
+   if data.get('revision')!=old['revision']:raise Conflict('Los módulos contratados cambiaron.')
+   value={'revision':old['revision']+1,'modules':modules};db.execute("INSERT INTO app_meta VALUES('module_contract',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",(json.dumps(value),));self.audit(db,actor,'modulos_contratados',{'modules':modules})
+  return {'ok':True,**value}
  def save_edition(self,data,actor):
   self.owner(actor);code=data.get('edicion')
   if code not in ('lite','avanzada'):raise ValueError('Selecciona Lite o Avanzada.')

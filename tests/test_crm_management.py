@@ -20,5 +20,15 @@ class CRMManagementTests(unittest.TestCase):
   self.c.value('/api/crm/acceso-tablero',{**grant,'habilitado':False,'revision':1});self.assertEqual(self.c.call(query,actor=self.c.actors['uno'])[0],403)
  def test_new_seller_is_created_with_company_scope_only_by_systems(self):
   data={'empresa':self.c.company,'email':'nuevo@example.test','nombre':'Vendedor nuevo','password':self.c.password};self.assertEqual(self.c.call('/api/crm/vendedores',data,self.c.actors['gerente'])[0],403);self.c.value('/api/crm/vendedores',data);actor=self.c.login(data['email']);self.assertEqual(self.c.value('/api/me',actor=actor)['user']['role'],'ventas');self.assertIn(data['email'],[v['email'] for v in self.c.value(self.path('meta'))['vendedores']]);self.assertEqual(self.c.value(self.path('meta'),actor=actor)['clientes'],[])
+ def test_commission_basis_snapshots_collections_refunds_and_private_reports(self):
+  company=self.c.company;rate={'empresa':company,'cliente':self.c.customer,'vendedor':'uno@example.test','porcentaje':'10','base':'FACTURADO','revision':0};self.c.value('/api/crm/comisiones',rate)
+  concept=self.c.value('/api/finanzas/conceptos',{'empresa':company,'libro':'CXC','nombre':'Facturas de prueba'})['id'];account={'empresa':company,'libro':'CXC','tercero':self.c.customer,'concepto':concept,'fecha':'2026-11-01','vencimiento':'2026-11-30','moneda':'MXN','importe':'1160','baseComision':'1000'}
+  first=self.c.value('/api/finanzas/cuentas',{**account,'referencia':'FACTURADO-1'})['id'];self.c.value('/api/crm/comisiones',{**rate,'porcentaje':'20','base':'COBRADO','revision':1});second=self.c.value('/api/finanzas/cuentas',{**account,'referencia':'COBRADO-1'})['id']
+  import uuid
+  for id in (first,second):self.c.value('/api/finanzas/pagos',{'cuenta':id,'tipo':'ABONO','importe':'580','fecha':'2026-11-10','referencia':'Transferencia','metodo':'TRANSFERENCIA','revision':1,'clave':uuid.uuid4().hex})
+  self.c.value('/api/finanzas/pagos',{'cuenta':second,'tipo':'REEMBOLSO','importe':'116','fecha':'2026-11-20','referencia':'Devolución','metodo':'TRANSFERENCIA','revision':2,'clave':uuid.uuid4().hex})
+  query='?empresa='+str(company)+'&desde=2026-11-01&hasta=2026-11-30';result=self.c.value('/api/crm/reporte-comisiones'+query);self.assertEqual(result['totalesPorMoneda'],{'MXN':'180.00'});self.assertEqual({r['regla'] for r in result['registros']},{'FACTURADO','COBRADO'});self.assertEqual(next(r for r in result['registros'] if r['cuenta']==first)['porcentaje'],'10.00')
+  for suffix,signature in [('excel',b'PK'),('pdf',b'%PDF-'),('csv',b'\xef\xbb\xbf')]:
+   path='/api/crm/comisiones-'+suffix+query;self.assertEqual(self.c.call(path,actor=self.c.actors['uno'])[0],403);self.assertTrue(self.c.call(path)[1].startswith(signature))
 
 if __name__=='__main__':unittest.main()

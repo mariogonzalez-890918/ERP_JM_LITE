@@ -59,7 +59,7 @@ template=template.replaceAll('ERP JM Lite','ERP JM Lite');
 await fs.writeFile(dir+'/public/index.html',template);
 let login=await fs.readFile(dir+'/public/login.html','utf8');
 login=login.replace(/<style id="jm-login-theme">[\s\S]*?<\/style>/g,'').replace('</style>','</style><style id="jm-login-theme">'+await fs.readFile('sku/login-theme.css','utf8')+'</style>').replace('Acceso a los catálogos de compras y ventas','Catálogos, requisiciones y reportes en un solo lugar');
-login=login.replaceAll('ERP JM Lite','ERP JM Lite').replace(/<p id="appLoginInfo">[\s\S]*?<\/p>/g,'').replace('</h1>','</h1><p id="appLoginInfo">Versión 0.1.0-dev<br>aplicación soportada y gestionada por Ing. Mario González, Sistemas 2026</p>');
+login=login.replaceAll('ERP JM Lite','ERP JM Lite').replace(/<p id="appLoginInfo">[\s\S]*?<\/p>/g,'').replace('</h1>','</h1><p id="appLoginInfo">Versiones Lite y Avanzada</p>');
 if(!login.includes('id="loginOtp"'))login=login.replace('<button id="entrar">','<label>Código 2FA o de recuperación (opcional)<input id="loginOtp" autocomplete="one-time-code" maxlength="64"></label><button id="entrar">');
 if(!login.includes("codigo:document.getElementById('loginOtp')"))login=login.replace("password:document.getElementById('password').value","password:document.getElementById('password').value,codigo:document.getElementById('loginOtp').value");
 await fs.writeFile(dir+'/public/login.html',login);

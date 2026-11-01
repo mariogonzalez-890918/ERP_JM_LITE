@@ -26,6 +26,7 @@ class CleanInstallation(unittest.TestCase):
       with urllib.request.urlopen(urllib.request.Request(url+path,headers={'Cookie':cookie})) as response:return response.read()
      self.assertEqual(json.loads(get('/api/catalogo'))['state']['registros'],[]);self.assertEqual(json.loads(get('/api/ventas'))['state']['registros'],[]);self.assertEqual(json.loads(get('/api/requisiciones/materiales'))['materiales'],[])
      self.assertEqual(json.loads(get('/api/empresa/config'))['sucursales'],[]);self.assertEqual(json.loads(get('/api/empresa/taxonomia'))['clasificaciones'],[])
+     self.assertEqual(json.loads(get('/api/requisiciones/meta'))['areas'],[])
      self.assertEqual(json.loads(get('/api/requisiciones/reportes/general/ejecutar'))['resumen']['base'],'0.00');self.assertTrue(get('/api/requisiciones/reportes/general/xlsx').startswith(b'PK'));self.assertTrue(get('/api/requisiciones/reportes/general/pdf').startswith(b'%PDF-'))
      self.assertIn(b'jmSidebar',get('/'));self.assertIn(b'data-erp-ready',get('/app.js'));self.assertEqual(len(json.loads(get('/api/me'))['roles']),13)
     finally:http.shutdown();http.server_close()

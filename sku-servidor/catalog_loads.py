@@ -93,7 +93,6 @@ class CatalogLoads:
    if not review and (data.get('huellaActual')!=fingerprint or data.get('huellaArchivo')!=digest):raise Conflict('La base o el archivo cambió. Revisa nuevamente la carga.')
    if id=='areas':
     self.req.areas.authorize(actor);rows,_=read_rows(raw,'AREAS.xlsx',sheet_name='AREAS');seen=set();count=0
-    from requisiciones import norm
     for number,row in rows[1:]:
      name=str(row.get('A','')).strip()
      if not name:continue

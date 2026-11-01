@@ -75,7 +75,12 @@ class Finance:
     if purchase.get('empresa')!=company or purchase.get('proveedorId')!=party:raise ValueError('La compra no pertenece al proveedor y empresa.')
     if currency!='MXN' or value!=Decimal(purchase['total']):raise ValueError('El importe de la compra ligada debe coincidir en MXN.')
     if db.execute("SELECT 1 FROM fn_accounts WHERE json_extract(payload,'$.compra')=?",(source,)).fetchone():raise ValueError('La compra ya tiene una cuenta registrada.')
-   id=secrets.token_hex(16);payload={'concepto':concept[0],'compra':source,'observaciones':text(data.get('observaciones',''),4000),'actor':actor['email'],'creado':now()}
+   kind=data.get('tipoDocumento','FACTURA');raw_base=data.get('baseComision');base=cash(value if raw_base in (None,'') else raw_base)
+   if kind not in ('FACTURA','CARGO','SALDO_INICIAL') or base>value:raise ValueError('Indica tipo de documento y base de comisión no mayor al importe.')
+   id=secrets.token_hex(16);payload={'concepto':concept[0],'compra':source,'tipoDocumento':kind,'baseComision':money(base),'observaciones':text(data.get('observaciones',''),4000),'actor':actor['email'],'creado':now()}
+   if book=='CXC':
+    rule=db.execute('SELECT a.seller,c.percentage,c.basis FROM cm_customer_assignments a LEFT JOIN crm_commissions c ON c.company=? AND c.customer=a.customer AND c.seller=a.seller WHERE a.customer=?',(company,party)).fetchone()
+    payload['comision']={'vendedor':rule[0] if rule else '', 'porcentaje':rule[1] or '0.00' if rule else '0.00','base':rule[2] or 'FACTURADO' if rule else 'FACTURADO'}
    try:db.execute('INSERT INTO fn_accounts VALUES(?,?,?,?,?,?,?,?,?,0,1,?)',(id,company,book,party,reference,issued,due,currency,money(value),dumps(payload)))
    except sqlite3.IntegrityError:raise ValueError('Ya existe esa referencia para este proveedor/cliente.')
    self.cm.audit(db,actor,company,'cuenta_registrada',{'id':id,'libro':book,'importe':money(value),'moneda':currency})

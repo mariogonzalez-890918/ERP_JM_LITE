@@ -1,8 +1,17 @@
-import contextlib,hashlib,json,secrets,sqlite3,unittest
+import base64,contextlib,hashlib,json,secrets,sqlite3,unittest
 import test_backup_import as fixtures
 
 class EnterpriseTests(unittest.TestCase):
  setUp=fixtures.ModuleBackupTests.setUp;tearDown=fixtures.ModuleBackupTests.tearDown;call=fixtures.ModuleBackupTests.call;value=fixtures.ModuleBackupTests.value;login=fixtures.ModuleBackupTests.login
+ def test_edition_owner_only_and_area_layout_review_is_atomic(self):
+  self.value('/api/users',{'email':'aux@example.test','name':'Auxiliar','role':'auxti','password':self.password,'active':True});aux=self.login('aux@example.test')
+  self.assertEqual(self.call('/api/empresa/edicion',{'edicion':'avanzada'},aux)[0],403);self.value('/api/empresa/edicion',{'edicion':'avanzada'});self.assertEqual(self.value('/api/me')['app']['edicion']['nombre'],'Avanzada')
+  from catalog_loads import workbook
+  content=base64.b64encode(workbook('AREAS',{'A':'NOMBRE'},[{'A':'Área prueba layout'}])).decode();data={'modulo':'areas','contenido':content};review=self.value('/api/empresa/cargas',{**data,'revisar':True});self.assertNotIn('Área prueba layout',self.value('/api/requisiciones/meta')['areas']);self.value('/api/empresa/cargas',{**data,'huellaActual':review['huellaActual'],'huellaArchivo':review['huellaArchivo']});self.assertIn('Área prueba layout',self.value('/api/requisiciones/meta')['areas'])
+ def test_contract_is_owner_only_and_applies_to_existing_sessions(self):
+  self.value('/api/users',{'email':'seller@example.test','name':'Vendedor','role':'ventas','password':self.password,'active':True});seller=self.login('seller@example.test');self.assertIn('ventas',self.value('/api/me',actor=seller)['user']['modulos'])
+  self.assertEqual(self.call('/api/empresa/modulos',actor=seller)[0],403);self.assertEqual(self.call('/api/empresa/modulos',{'revision':0,'modules':['ventas']},seller)[0],403)
+  self.value('/api/empresa/modulos',{'revision':0,'modules':['calidad']});self.assertEqual(self.value('/api/me',actor=seller)['user']['modulos'],[]);self.assertIn('ventas',self.value('/api/me')['user']['modulos']);self.assertEqual(self.call('/api/empresa/modulos',{'revision':0,'modules':['ventas']})[0],409)
  def token(self):
   token=secrets.token_urlsafe(28);salt=secrets.token_hex(16);(self.store.directory/'activation-verifier.json').write_text(json.dumps({'salt':salt,'token_hash':hashlib.pbkdf2_hmac('sha256',token.encode(),bytes.fromhex(salt),310000).hex()}),encoding='utf8');return token
  def test_company_revision_branches_and_private_activation(self):

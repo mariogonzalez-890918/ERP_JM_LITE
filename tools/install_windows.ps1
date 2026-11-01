@@ -30,7 +30,7 @@ New-Item -ItemType Directory -Path $InstallDir,$DataRoot -Force | Out-Null
 & icacls.exe $DataRoot /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'No se pudieron proteger los datos.' }
 $configPath = Join-Path $DataRoot 'config.json'
-$config = @{host='0.0.0.0';port=8098;data_dir='data';log_dir='logs';require_activation=$true}
+$config = @{host='0.0.0.0';port=8098;data_dir='data';log_dir='logs';require_activation=$true;require_module_contract=$true}
 if (Test-Path -LiteralPath $configPath) {
     $existing = Get-Content -Raw -LiteralPath $configPath | ConvertFrom-Json
     foreach ($key in @('data_dir','log_dir')) { if ($null -ne $existing.$key) { $config[$key] = $existing.$key } }

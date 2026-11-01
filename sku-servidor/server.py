@@ -201,7 +201,13 @@ class Store:
   with self.connect() as db:
    row=db.execute('SELECT u.email,u.name,u.role,s.csrf,a.sucursales,a.almacenes,p.modules,EXISTS(SELECT 1 FROM app_internal_admins i WHERE i.email=u.email) FROM sessions s JOIN users u ON s.email=u.email LEFT JOIN user_requisition_access a ON a.email=u.email LEFT JOIN role_modules p ON p.role=u.role WHERE s.token_hash=? AND s.expires>? AND u.active=1',(hashlib.sha256(token.encode()).hexdigest(),time.time())).fetchone()
   if not row or row[2] not in ROLES:return None
-  return {**dict(zip(('email','name','role','csrf'),row[:4])),'internalAdmin':bool(row[7]),'sucursales':json.loads(row[4] or '[]'),'almacenes':json.loads(row[5] or '[]'),'modulos':list(MODULES) if row[2]=='superadmin' else enabled_modules({'role':row[2],'modulos':json.loads(row[6] or '[]')})}
+  actor={**dict(zip(('email','name','role','csrf'),row[:4])),'internalAdmin':bool(row[7]),'sucursales':json.loads(row[4] or '[]'),'almacenes':json.loads(row[5] or '[]'),'modulos':list(MODULES) if row[2]=='superadmin' else enabled_modules({'role':row[2],'modulos':json.loads(row[6] or '[]')})}
+  if not is_internal_admin(actor):
+   with self.connect() as db:
+    exists=db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='app_meta'").fetchone();contract=db.execute("SELECT value FROM app_meta WHERE key='module_contract'").fetchone() if exists else None
+   allowed=json.loads(contract[0])['modules'] if contract else [] if getattr(self,'enforce_contract',False) else list(MODULES)
+   actor['modulos']=[m for m in actor['modulos'] if m in allowed]
+  return actor
  def profiles(self):
   with self.connect() as db:rows=db.execute('SELECT role,modules,revision FROM role_modules ORDER BY rowid').fetchall()
   return {'perfiles':[{'perfil':role,'nombre':ROLES[role],'modulos':list(MODULES) if role=='superadmin' else json.loads(modules),'revision':revision} for role,modules,revision in rows],'modulos':MODULES}
@@ -326,7 +332,10 @@ def create_handler(store):
      if path=='/api/empresa/taxonomia':result=store.taxonomy.get(actor)
      elif path=='/api/seguridad/estado':result=store.security.status(actor)
      elif path=='/api/empresa/config':result=enterprise.get(actor)
+     elif path=='/api/empresa/modulos':result=enterprise.contract(actor)
      elif path=='/api/crm/planes':result=crm.plans(q,actor)
+     elif path=='/api/crm/reporte-comisiones':result=crm.commission_report(q,actor)
+     elif path in ('/api/crm/comisiones-excel','/api/crm/comisiones-csv','/api/crm/comisiones-pdf'):result=crm.commission_export(q,actor,path.rsplit('-',1)[-1])
      elif path=='/api/empresa/layouts':result=loads.listed(actor)
      elif path.startswith('/api/empresa/layout/'):result=loads.layout(path.rsplit('/',1)[-1],actor)
      elif path=='/api/calidad/registros':result=quality.get(q,actor)
@@ -489,6 +498,7 @@ def create_handler(store):
      return self.reply(200,actions[self.path](data,actor))
     if self.path.startswith(('/api/empresa/','/api/calidad/','/api/crm/')):
      if self.path=='/api/empresa/edicion':return self.reply(200,enterprise.save_edition(self.read_body(),actor))
+     if self.path=='/api/empresa/modulos':return self.reply(200,enterprise.save_contract(self.read_body(),actor))
      crm_actions={'/api/crm/vendedores':crm.add_seller,'/api/crm/comisiones':crm.commission,'/api/crm/acceso-tablero':crm.grant_dashboard,'/api/crm/planes':crm.save_plan}
      if self.path in crm_actions:return self.reply(200,crm_actions[self.path](self.read_body(),actor))
      data=self.read_body();actions={'/api/empresa/taxonomia':store.taxonomy.save,'/api/empresa/config':enterprise.save,'/api/empresa/activar':enterprise.activate,'/api/empresa/restablecer':enterprise.reset,'/api/empresa/sucursales':lambda d,a:save_branch(store,d,a),'/api/empresa/cargas':loads.run,'/api/calidad/guardar':quality.save,'/api/calidad/estado':quality.transition,'/api/calidad/version':quality.new_version,'/api/calidad/archivo':quality.attach,'/api/crm/asignar':crm.assign,'/api/crm/oportunidades':crm.save,'/api/crm/seguimiento':crm.follow}
@@ -586,6 +596,7 @@ def main():
  if not data_dir.is_absolute():data_dir=configpath.parent/data_dir
  store=Store(data_dir,initial_admin=admin)
  store.require_activation=config.get('require_activation',False) is True
+ store.enforce_contract=config.get('require_module_contract',False) is True
  if args.initialize:
   print('Instalación inicializada. Administrador: '+ADMIN_EMAIL,flush=True);return
  if config.get('log_dir'):

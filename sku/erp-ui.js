@@ -12,7 +12,7 @@ $('jmNav').append($('jmNavBackups'));
 for(const route of ['compras','ventas','requisiciones'])$('jmModuleLinks').append(jmButtons[route]);
 for(const [route,button] of Object.entries(jmButtons)){button.hidden=!jmAllowed[route];button.removeAttribute('role');button.removeAttribute('aria-selected');button.type='button';button.dataset.route=route;jmLabel(button,jmNames[route],jmIcons[route]);button.onclick=()=>jmNavigate(route);}
 $('jmAdminCaption').hidden=!canDelete;
-$('jmAppVersion').textContent=appInfo.titulo+' · Versión '+appInfo.version;$('jmAppSupport').textContent=appInfo.soporte;
+$('jmAppVersion').textContent='ERP JM · Versión '+(appInfo.edicion?.nombre||'Lite');$('jmAppSupport').textContent='';
 $('jmMenuToggle').append(jmIcon('menu'));
 $('jmAccountName').textContent=currentUser.name;$('jmAccountName').title=currentUser.internalAdmin?'Sistemas':currentUser.email;$('jmAccountRole').textContent=roleNames[currentUser.role];$('jmRoleBadge').textContent=roleNames[currentUser.role];$('jmAvatar').textContent=currentUser.name.split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
 $('jmLogout').append($('salir'));$('salir').prepend(jmIcon('logout'));

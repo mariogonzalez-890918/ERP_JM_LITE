@@ -4,7 +4,7 @@ from permissions import require_module
 import base64,collections,csv,datetime,decimal,hashlib,html,io,json,pathlib,re,sqlite3,unicodedata,uuid,zipfile,xml.etree.ElementTree as ET
 ROOT=pathlib.Path(__file__).resolve().parent
 MX=datetime.timezone(datetime.timedelta(hours=-6))
-AREAS=['Administración','Compras','Ventas','Almacén','Calidad','Operaciones','Sistemas']
+AREAS=[]
 from sucursales import BRANCHES
 MANAGERS={'superadmin','auxti','compras','alta'}
 SCOPED_ROLES={'gerente','almacenista','requisicion'}

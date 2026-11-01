@@ -7,6 +7,17 @@ MODULES={'documents':'Documentos','forms':'Diseñador de formatos','records':'Re
 FIELDS={'documents':['tipo','area','proceso','elaborador','revisor','aprobador','fecha_vigencia','proxima_revision','motivo'],'forms':['area','responsable','descripcion','instrucciones'],'audits':['fecha','alcance','proceso','auditor','lista_verificacion'],'findings':['area','proceso','descripcion','clasificacion','auditoria','responsable','fecha_compromiso','causa','accion_inmediata'],'actions':['no_conformidad','responsable','fecha_compromiso','accion_correctiva','verificacion_eficacia'],'records':['formato','valores']}
 STATES={'documents':['BORRADOR','APROBADO','OBSOLETO'],'forms':['BORRADOR','APROBADO','OBSOLETO'],'records':['BORRADOR','REGISTRADO'],'audits':['PROGRAMADA','EN_CURSO','CERRADA'],'findings':['ABIERTA','EN_ANALISIS','CERRADA'],'actions':['ABIERTA','EN_PROCESO','VERIFICADA','CERRADA']}
 TYPES=['texto','texto_largo','fecha','hora','numero','lista','multiple','casilla','si_no_na','responsable','tabla','fotografia','archivo','evidencia','comentarios','observaciones']
+EXTRA_MODULES={
+ 'inspections':('Inspecciones y liberación',['fecha','producto','lote','proveedor','criterios','resultado','responsable','observaciones']),
+ 'risks':('Riesgos y oportunidades',['proceso','riesgo','probabilidad','impacto','controles','responsable','fecha_compromiso','seguimiento']),
+ 'calibrations':('Equipos y calibraciones',['equipo','serie','ubicacion','responsable','fecha','proxima_revision','patron','resultado','certificado']),
+ 'maintenance':('Mantenimiento de equipos',['equipo','tipo','responsable','fecha','proxima_revision','trabajos','resultado']),
+ 'training':('Capacitación y competencias',['tema','instructor','participantes','fecha','evaluacion','resultado','responsable','proxima_revision']),
+ 'complaints':('Quejas y devoluciones',['cliente','producto','lote','fecha','descripcion','responsable','fecha_compromiso','causa','respuesta']),
+ 'supplier_reviews':('Evaluación de proveedores',['proveedor','periodo','calidad','entrega','servicio','resultado','responsable','proxima_revision']),
+ 'changes':('Control de cambios',['proceso','descripcion','justificacion','riesgos','responsable','fecha_compromiso','verificacion']),
+ 'improvements':('Mejora continua',['proceso','situacion_actual','objetivo','indicador','responsable','fecha_compromiso','resultado'])}
+for key,(label,fields) in EXTRA_MODULES.items():MODULES[key]=label;FIELDS[key]=fields;STATES[key]=['BORRADOR','REGISTRADO']
 
 class QualityLite:
  def __init__(self,store):
@@ -19,6 +30,13 @@ class QualityLite:
  def scope(self,actor,write=False):
   require_module(actor,'calidad')
   if write and actor['role'] not in ('superadmin','calidad'):raise PermissionError('Solo Calidad y Superadministrador modifican QualityLite.')
+ def dashboard(self,actor):
+  self.scope(actor);today=now()[:10];counts={key:0 for key in MODULES};pending=[]
+  with self.store.connect() as db:
+   for id,module,code,title,state,payload in db.execute('SELECT id,module,code,title,state,payload FROM q_items'):
+    counts[module]=counts.get(module,0)+1;value=json.loads(payload);due=value.get('fecha_compromiso') or value.get('proxima_revision')
+    if due and due<=today and state not in ('CERRADA','OBSOLETO','REGISTRADO'):pending.append({'id':id,'modulo':module,'codigo':code,'titulo':title,'fecha':due,'responsable':value.get('responsable') or value.get('aprobador','')})
+  return {'totales':counts,'vencidosPendientes':sorted(pending,key=lambda v:v['fecha'])[:100]}
  def event(self,db,id,actor,action,payload):db.execute('INSERT INTO q_events(item,actor,action,created,payload) VALUES(?,?,?,?,?)',(id,actor['email'],action,now(),json.dumps(payload,ensure_ascii=False)))
  def row(self,db,id):
   row=db.execute('SELECT id,module,code,title,version,state,payload,author,created,updated,revision FROM q_items WHERE id=?',(id,)).fetchone()

@@ -10,7 +10,7 @@ No se ha certificado todavia este paquete en toda la matriz Windows.
 1. Extrae TODO el ZIP en una carpeta temporal local.
 2. Abre PowerShell como administrador en esa carpeta y ejecuta:
    powershell -NoProfile -ExecutionPolicy Bypass -File .\\install_windows.ps1 -OpenFirewall
-3. Selecciona el puerto que asignara el servidor y define la clave de
+3. El puerto web es 8098. Define la clave de
    mario.gonzalez@jad-ayt.com en la consola (entrada oculta).
 4. Abre http://NOMBRE-O-IP-DEL-SERVIDOR:PUERTO desde un navegador moderno.
 
@@ -19,8 +19,10 @@ integrados en el EXE y Microsoft Visual C++ x64 firmado por Microsoft.
 No necesitas instalar Python, Node, Office ni SQLite en los equipos cliente.
 Se instala el programa en Program Files y los datos en ProgramData\\ERP JM Lite.
 La tarea ERP-JM-Lite arranca el servidor al encender Windows.
-El firewall opcional permite solo la subred local en perfiles Privado/Dominio.
-Para otras redes se debe configurar la regla segun el alcance autorizado.
+El servidor escucha en todas las interfaces IPv4, incluidas las VPN.
+El firewall opcional permite TCP 8098 para este EXE en todos los perfiles,
+incluidas redes ZeroTier, Radmin y Hamachi. La VPN debe permitir la conexion.
+Si 8098 esta ocupado, se informa el problema y no se cambia de puerto.
 
 ACTUALIZAR: detener la tarea, respaldar ProgramData\\ERP JM Lite y volver a
 instalar conservando esa carpeta. Nunca se restablece la clave existente.

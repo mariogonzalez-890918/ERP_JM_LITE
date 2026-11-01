@@ -36,7 +36,7 @@ input[type=checkbox]{accent-color:#0067a5!important}.top{background:#123454!impo
 :root[data-theme=dark][data-color=rosa]{--jm-soft:#433042;--jm-nav:#281a27}:root[data-theme=dark][data-color=verde]{--jm-soft:#263f38;--jm-nav:#13281f}
 body,.jm-workspace{background:var(--jm-bg)!important;color:var(--jm-text)!important;--green:var(--jm-accent);--accent:var(--jm-accent);--ink:var(--jm-text);--muted:var(--jm-muted);--line:var(--jm-border);--canvas:var(--jm-bg)}
 #jmSidebar,.jm-header,.top{background:var(--jm-nav)!important}#jmTopbar{background:var(--jm-surface)!important;border-bottom-color:var(--jm-accent)!important}
-#jmNav button[aria-current=page],#jmNav button.jm-parent-active,.jm-content button,button.primary,button:not(.secondary):not([data-route]):not(.product):not(.jm-menu-toggle):not(.jm-app-card){background-color:var(--jm-accent);border-color:var(--jm-accent)}
+#jmNav button[aria-current=page],#jmNav button.jm-parent-active,.jm-content button,button.primary{background-color:var(--jm-accent);border-color:var(--jm-accent)}
 .jm-content button:hover{background:var(--jm-hover)}.jm-panel,.jm-app-grid,.jm-app-card,.jm-metric,.jm-flat-panel,.jm-help,.jm-catalog-toolbar,.rp-kpi,.card,.cart,.context,dialog,main:not(#jmMain),aside{background-color:var(--jm-surface)!important;color:var(--jm-text);border-color:var(--jm-border)!important}
 .jm-hero,.jm-metrics>div,.jm-content pre,.jm-content output:not(:empty),.jm-app-card:hover{background:var(--jm-soft)!important;border-color:var(--jm-accent)!important;color:var(--jm-text)!important}
 .jm-hero h2,.jm-hero p,.jm-app-card strong,.jm-metric strong,.rp-kpi strong,.jm-content h1,.jm-content h2,.jm-metrics strong,h1,h2,h3{color:var(--jm-text)!important}
@@ -48,6 +48,49 @@ table th,#jmMain th,.jm-content th,tbody tr:nth-child(even){background:var(--jm-
 @media print{.jm-theme-tools,.jm-layout-access{display:none!important}:root[data-theme=dark]{--jm-bg:#fff;--jm-surface:#fff;--jm-soft:#eee;--jm-text:#111;--jm-muted:#333;--jm-border:#ccc}}
 input[type=checkbox]{accent-color:var(--jm-accent)!important}:root[data-theme=dark] a{color:#8bc9ff}:root[data-theme=dark][data-color=rosa] a{color:#ffa4d0}:root[data-theme=dark][data-color=verde] a{color:#8be0bc}:root[data-theme=dark] .jm-header a,:root[data-theme=dark] .top a,:root[data-theme=dark] #jmSidebar a{color:#fff}
 #jmHeroActions button,.jm-content button,button.primary{color:#fff!important}#jmMain button.secondary,.jm-content button.secondary{color:var(--jm-text)!important;background:var(--jm-soft)!important;border-color:var(--jm-border)!important}#jmAppVersion{color:var(--jm-text)!important}#jmAppSupport{color:var(--jm-muted)!important}
+/* Colores emparejados: el texto siempre sigue al fondo de su componente. */
+:root{background:var(--jm-bg);--jm-info-bg:#e8f1f8;--jm-info-text:#204761;--jm-error-bg:#fff0f0;--jm-error-text:#9b2333;--jm-focus:#0067a5}
+:root[data-theme=dark]{--jm-info-bg:#273e50;--jm-info-text:#d9edff;--jm-error-bg:#4d2630;--jm-error-text:#ffd8df;--jm-focus:#9bd4ff}
+button{background-color:var(--jm-accent);color:#fff;border-color:var(--jm-accent)}
+button:hover{filter:none}button:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid var(--jm-focus);outline-offset:3px}
+button.secondary,#jmMain button.secondary,.jm-content button.secondary{background:var(--jm-soft)!important;color:var(--jm-text)!important;border-color:var(--jm-border)!important}
+button.danger,.jm-content button.jm-danger,#jmMain button.danger{background:#a32938!important;color:#fff!important;border-color:#a32938!important}
+aside button,.tabs button,#jmMain .jm-segments button,.tabbar button{background:transparent!important;color:var(--jm-text)!important;border-color:transparent!important;filter:none}
+aside button:hover,.tabs button:hover,#jmMain .jm-segments button:hover,.tabbar button:hover{background:var(--jm-soft)!important;color:var(--jm-text)!important}
+aside button.active,.tabs button.active,#jmMain .jm-segments button[aria-selected=true],.tabbar button[aria-selected=true]{background:var(--jm-accent)!important;color:#fff!important;border-color:var(--jm-accent)!important}
+#jmSidebar button{background:transparent;color:#e7eff7}#jmSidebar #jmNav button[aria-current=page],#jmSidebar #jmNav button.jm-parent-active{background:var(--jm-accent);color:#fff}
+.breadcrumb,label,#jmMain label,#jmMain .note,.line small,.product small,.sales-product-result small,.jm-material-card small,.jm-status-date{color:var(--jm-muted)!important}
+.top label,.jm-header label{color:#fff!important}.top button{color:#fff!important}.top{height:auto;min-height:62px;flex-wrap:wrap}.top .jm-theme-tools{margin-left:auto}
+.table-wrap,.catalog,.product,.sales-product-result,.order-status,.form-note,#jmMain details,#jmMain .scroll,#jmMain .jm-backup-card,#jmMain .jm-image-card,#jmMain .jm-material-card,.jm-image-results{background:var(--jm-surface)!important;color:var(--jm-text)!important;border-color:var(--jm-border)!important}
+.product:hover,.sales-product-result:hover,#jmMain .jm-material-card:hover,#jmMain .jm-material-card[aria-pressed=true]{background:var(--jm-soft)!important;color:var(--jm-text)!important}
+.product strong,.sales-product-result strong,#jmMain summary,#jmMain .eyebrow,.order-status span{color:var(--jm-text)!important}
+.order-status span.active,#jmMain .pill,.jm-image-rules,.rp-detail-total,#jmMain output:not(:empty){background:var(--jm-soft)!important;color:var(--jm-text)!important;border-color:var(--jm-border)!important}
+.rp-detail-total span,.rp-detail-total strong,.jm-image-rules span{color:inherit!important}
+#notice:not(:empty),.form-note{background:var(--jm-info-bg)!important;color:var(--jm-info-text)!important}
+#notice p,.form-note p{color:inherit!important}
+#error:not(:empty),#jmMain #error:not(:empty),#editorError:not(:empty),[role=alert]:not(:empty){background:var(--jm-error-bg)!important;color:var(--jm-error-text)!important}
+input::placeholder,textarea::placeholder{color:var(--jm-muted);opacity:1}
+.metric{background:var(--jm-surface)!important;color:var(--jm-text)!important;border-color:var(--jm-border)!important}
+.muted{color:var(--jm-muted)!important}
+#capturePermission,.jm-date-icon{color:var(--jm-muted)!important}
+#jmHeroActions button{background:var(--jm-accent)!important;color:#fff!important;border-color:var(--jm-accent)!important}
+.jm-skip{background:var(--jm-surface)!important}legend{color:var(--jm-text)!important}
+#jmSidebar button,#jmSidebar .jm-nav-text,#jmSidebar .jm-nav-chevron{color:#e7eff7!important}
+#jmSidebar .jm-nav-caption,#jmSidebar .jm-sidebar-bottom>p{color:#c5d5e2!important}
+#jmSidebar #jmNav button[aria-current=page],#jmSidebar #jmNav button.jm-parent-active{background:var(--jm-accent)!important;color:#fff!important}
+#message,.status,#negativeBanner{background:var(--jm-soft)!important;color:var(--jm-text)!important}
+#message.error{background:var(--jm-error-bg)!important;color:var(--jm-error-text)!important}
+nav[aria-label=Inventarios] button{background:var(--jm-soft);color:var(--jm-text);border-color:var(--jm-border)}
+nav[aria-label=Inventarios] button[aria-selected=true]{background:var(--jm-accent);color:#fff;border-color:var(--jm-accent)}
+body>header:not(#jmTopbar){background:var(--jm-nav)!important;color:#fff}
+.jm-launcher{margin-left:auto}.jm-launcher-trigger{white-space:nowrap;padding:9px 13px;border:1px solid var(--jm-accent);border-radius:3px}
+.jm-launcher-panel{position:fixed;top:76px;right:16px;z-index:200;width:min(1050px,calc(100vw - 32px));max-height:calc(100vh - 100px);overflow:auto;padding:22px;background:var(--jm-surface);color:var(--jm-text);border:1px solid var(--jm-border);box-shadow:0 8px 30px #0004;border-radius:4px;text-align:left;font:14px 'Segoe UI',Arial,sans-serif}
+.jm-launcher-panel[hidden],.jm-launcher-panel [hidden]{display:none!important}.jm-launcher-heading{display:flex;gap:16px;align-items:center;justify-content:space-between;margin-bottom:18px}.jm-launcher-heading>strong{font-size:20px}.jm-launcher-panel>input{width:100%;padding:11px;margin:0 0 20px;border:1px solid var(--jm-border)}
+.jm-launcher-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:22px}.jm-launcher-grid h2{font-size:15px;margin:0 0 10px;padding:0 0 9px;border-bottom:2px solid var(--jm-accent)}.jm-launcher-panel .jm-launcher-grid a{display:block;background:var(--jm-surface);color:var(--jm-text)!important;text-decoration:none;padding:11px 9px;border-bottom:1px solid var(--jm-border);font-weight:400}.jm-launcher-panel .jm-launcher-grid a:hover{background:var(--jm-soft);text-decoration:underline}
+.jm-edition-form{display:flex;gap:14px;align-items:end;flex-wrap:wrap;border-top:1px solid var(--jm-border);margin-top:24px;padding-top:16px}.jm-launcher-panel .jm-edition-form label{color:var(--jm-text)!important;display:grid;gap:7px;margin:0;font-size:13px}.jm-edition-form button{padding:9px 14px}.jm-edition-form output{color:var(--jm-text)}
+.jm-catalog-config{max-width:850px;width:94vw;max-height:90vh;overflow:auto;padding:24px}.jm-catalog-config label{display:grid;gap:7px}.jm-catalog-config .actions{grid-column:1/-1}
+.sku-preview{background:var(--jm-soft)!important;color:var(--jm-text)!important}.jm-plan-chart{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;margin:20px 0}.jm-plan-chart>div{padding:14px;border:1px solid var(--jm-border)}.jm-plan-chart strong{display:block;margin-bottom:10px}.jm-plan-bar{min-width:140px;max-width:100%;background:var(--jm-soft);color:var(--jm-text);padding:8px;margin:5px 0;border-left:4px solid var(--jm-accent);font-size:12px}.jm-plan-bar.real{border-left-width:12px}
+@media print{:root{--jm-bg:#fff;--jm-surface:#fff;--jm-soft:#eee;--jm-text:#111;--jm-muted:#333;--jm-border:#ccc}}
 </style></head><body class="jm-workspace"><header class="jm-header"><img src="/logo.svg" alt="JM"><strong>ERP JM Lite</strong><nav><a href="/">Inicio</a><a href="/empresa">Empresa</a><a href="/cargas">Layouts y cargas</a></nav><span id="account"></span></header><main class="jm-content"><h1 id="pageTitle">Empresa y configuración</h1><output id="message" role="status"></output>
 <section id="companySection" class="jm-panel"><h2>Datos de la empresa</h2><form id="companyForm" class="jm-fields"><label>Nombre / razón social<input name="nombre" required maxlength="200"></label><label>RFC<input name="rfc" maxlength="30"></label><label>Rubro / giro<input name="rubro" required maxlength="150"></label><label>Responsable<input name="responsable" required maxlength="200"></label><label>Correo<input name="correo" type="email" maxlength="160"></label><label>Teléfono<input name="telefono" maxlength="60"></label><label class="jm-wide">Domicilio<textarea name="domicilio" maxlength="700"></textarea></label><button>Guardar empresa</button></form></section>
 <section id="branchesSection" class="jm-panel"><h2>Sucursales configurables</h2><p>Los nombres y series existentes conservan su historial.</p><div id="branches"></div><form id="branchForm" class="jm-fields"><label>Nueva sucursal<input name="nombre" maxlength="80" required></label><label>Serie de requisición<input name="serie" maxlength="20" placeholder="REQ-NORTE" required></label><button>Agregar sucursal</button></form></section>

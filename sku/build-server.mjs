@@ -76,11 +76,14 @@ for(const name of ['index.html','login.html','app.js','commercial.html','commerc
 
 await fs.copyFile('sku/inventory-panel.html',dir+'/public/inventory.html');await fs.writeFile(dir+'/public/inventory.js',await fs.readFile('sku/date-format.js','utf8')+'\n'+await fs.readFile('sku/inventory-ui.js','utf8')+'\n'+await fs.readFile('sku/inventory-operations-ui.js','utf8')+'\n'+await fs.readFile('sku/inventory-documents-ui.js','utf8'));
 const enterprise=await fs.readFile('sku/enterprise.css','utf8');
-for(const name of ['enterprise','quality','crm','security']){
+for(const name of ['enterprise','quality','crm','security','finance']){
  await fs.copyFile('sku/'+name+'-panel.html',dir+'/public/'+name+'.html');
  await fs.copyFile('sku/'+name+'-ui.js',dir+'/public/'+name+'.js');
 }
-for(const name of ['index.html','commercial.html','purchase.html','inventory.html','enterprise.html','quality.html','crm.html','security.html']){
+let crmPage=await fs.readFile(dir+'/public/crm.html','utf8');crmPage=crmPage.replace('</main>',await fs.readFile('sku/crm-management-panel.html','utf8')+'</main>');await fs.writeFile(dir+'/public/crm.html',crmPage);
+await fs.appendFile(dir+'/public/crm.js','\n'+await fs.readFile('sku/crm-management-ui.js','utf8'));
+await fs.appendFile(dir+'/public/quality.js','\n'+await fs.readFile('sku/quality-management-ui.js','utf8'));
+for(const name of ['index.html','commercial.html','purchase.html','inventory.html','enterprise.html','quality.html','crm.html','security.html','finance.html']){
  let html=await fs.readFile(dir+'/public/'+name,'utf8');
  if(['commercial.html','purchase.html','inventory.html'].includes(name))html=html.replace('</body>','<a class="jm-layout-access" href="/cargas">Layouts y cargas iniciales</a></body>');
  html=html.replace(/<style id="jm-enterprise">[\s\S]*?<\/style>/g,'');
@@ -90,7 +93,9 @@ for(const name of ['index.html','commercial.html','purchase.html','inventory.htm
 }
 
 await fs.copyFile('sku/theme-ui.js',dir+'/public/theme.js');
-for(const name of ['index.html','login.html','commercial.html','purchase.html','inventory.html','enterprise.html','quality.html','crm.html','security.html']){
+await fs.copyFile('sku/workspace-menu.js',dir+'/public/workspace-menu.js');
+await fs.appendFile(dir+'/public/app.js','\n'+await fs.readFile('sku/catalog-config-ui.js','utf8'));
+for(const name of ['index.html','login.html','commercial.html','purchase.html','inventory.html','enterprise.html','quality.html','crm.html','security.html','finance.html']){
  let html=await fs.readFile(dir+'/public/'+name,'utf8');
  html=html.replace(/<script type="module" src="\/theme.js"><\/script>/g,'');
  if(name==='login.html')html=html.replace(/<style id="jm-enterprise">[\s\S]*?<\/style>/g,'').replace('</style>','</style><style id="jm-enterprise">'+enterprise+'</style>');

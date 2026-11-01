@@ -17,6 +17,16 @@ class Enterprise:
    db.execute('INSERT OR IGNORE INTO app_meta VALUES(?,?)',('installation_id',secrets.token_hex(16)))
  def owner(self,actor):
   if not is_internal_admin(actor):raise PermissionError('Esta acción está reservada a Sistemas.')
+ def edition(self):
+  with self.store.connect() as db:row=db.execute("SELECT value FROM app_meta WHERE key='edition'").fetchone()
+  code=row[0] if row and row[0] in ('lite','avanzada') else 'lite'
+  return {'codigo':code,'nombre':'Avanzada' if code=='avanzada' else 'Lite'}
+ def save_edition(self,data,actor):
+  self.owner(actor);code=data.get('edicion')
+  if code not in ('lite','avanzada'):raise ValueError('Selecciona Lite o Avanzada.')
+  with self.store.connect() as db:
+   db.execute('BEGIN IMMEDIATE');db.execute("INSERT INTO app_meta VALUES('edition',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",(code,));self.audit(db,actor,'edicion_configurada',{'edicion':code})
+  return self.edition()
  def admin(self,actor):
   if actor['role'] not in ('superadmin','auxti'):raise PermissionError('Solo administración consulta los datos de instalación.')
  def audit(self,db,actor,action,data):db.execute('INSERT INTO app_audit(actor,action,created,payload) VALUES(?,?,?,?)',(actor['email'],action,now(),json.dumps(data,ensure_ascii=False)))

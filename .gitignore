@@ -139,6 +139,16 @@
 !/sku/quality-panel.html
 !/docs/COMERCIALIZACION.md
 !/docs/EDICION_COMERCIAL.md
+!/sku/workspace-menu.js
+!/sku/catalog-config-ui.js
+!/sku/crm-management-panel.html
+!/sku/crm-management-ui.js
+!/sku/quality-management-ui.js
+!/sku-servidor/public/workspace-menu.js
+!/sku-servidor/public/finance.html
+!/sku-servidor/public/finance.js
+!/tests/test_finance.py
+!/tests/test_crm_management.py
 !/tools/provision_activation.py
 !/sku-servidor/public/crm.html
 !/sku-servidor/public/crm.js

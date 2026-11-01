@@ -257,6 +257,8 @@ class Store:
    db.execute('INSERT INTO user_requisition_access VALUES(?,?,?) ON CONFLICT(email) DO UPDATE SET sucursales=excluded.sucursales,almacenes=excluded.almacenes',(email,json.dumps(assigned['sucursales']),json.dumps(assigned['almacenes'])))
    if password or not active:db.execute('DELETE FROM sessions WHERE email=?',(email,))
 def create_handler(store):
+ from finance import Finance
+ from crm_management import CRMManagement
  commercial=CommercialAPI(store)
  sales=SalesStore(store)
  commercial.sync.apply_initial()
@@ -271,7 +273,7 @@ def create_handler(store):
  images=ImageStore(store,requisitions)
  backups=BackupStore(store,validate,reports)
  admin_approvals=AdminApprovals(store,sales,images,backups)
- enterprise=Enterprise(store);quality=QualityLite(store);loads=CatalogLoads(store,purchases,sales,requisitions,reports,commercial.cm,quality);crm=CRM(commercial.cm)
+ enterprise=Enterprise(store);quality=QualityLite(store);loads=CatalogLoads(store,purchases,sales,requisitions,reports,commercial.cm,quality);crm=CRMManagement(commercial.cm);finance=Finance(store,commercial.cm,procurement.po)
  class Handler(http.server.BaseHTTPRequestHandler):
   def active(self,actor):
    if not store.require_activation or is_internal_admin(actor):return True
@@ -296,7 +298,20 @@ def create_handler(store):
    if path in ('/','/index.html'):
     name='index.html' if actor else 'login.html';return self.reply(200,(ROOT/'public'/name).read_bytes(),'text/html; charset=utf-8')
    if not actor:return self.reply(401,{'error':'Inicia sesión para continuar.'})
-   if path=='/api/me':return self.reply(200,{'user':actor,'roles':ROLES,'catalogos':store.taxonomy.catalogs(),'app':{'titulo':TITLE,'version':VERSION,'soporte':SUPPORT_LINE}})
+   if path=='/workspace-menu.js':return self.reply(200,(ROOT/'public/workspace-menu.js').read_bytes(),'text/javascript; charset=utf-8')
+   if path in ('/finanzas','/finance.js'):
+    if not any(m in enabled_modules(actor) for m in ('pedidoscompra','ventasins')):return self.reply(403,{'error':'Módulo financiero no habilitado.'})
+    name='finance.html' if path=='/finanzas' else 'finance.js';return self.reply(200,(ROOT/'public'/name).read_bytes(),('text/html' if path=='/finanzas' else 'text/javascript')+'; charset=utf-8')
+   if path.startswith('/api/finanzas/'):
+    try:
+     q={k:v[0] for k,v in parse_qs(urlsplit(self.path).query).items()}
+     if path=='/api/finanzas/meta':result=finance.metadata(q,actor)
+     elif path=='/api/finanzas/cuentas':result=finance.list(q,actor)
+     else:raise ValueError('Consulta financiera no disponible.')
+     return self.reply(200,result)
+    except PermissionError as e:return self.reply(403,{'error':str(e)})
+    except (ValueError,KeyError,TypeError) as e:return self.reply(400,{'error':str(e)})
+   if path=='/api/me':return self.reply(200,{'user':actor,'roles':ROLES,'catalogos':store.taxonomy.catalogs(),'app':{'titulo':TITLE,'version':VERSION,'soporte':SUPPORT_LINE,'edicion':enterprise.edition()}})
    if path in ('/empresa','/cargas','/enterprise.js','/calidad','/quality.js','/crm','/crm.js','/seguridad','/security.js'):
     try:
      if path in ('/calidad','/quality.js'):require_module(actor,'calidad')
@@ -311,9 +326,11 @@ def create_handler(store):
      if path=='/api/empresa/taxonomia':result=store.taxonomy.get(actor)
      elif path=='/api/seguridad/estado':result=store.security.status(actor)
      elif path=='/api/empresa/config':result=enterprise.get(actor)
+     elif path=='/api/crm/planes':result=crm.plans(q,actor)
      elif path=='/api/empresa/layouts':result=loads.listed(actor)
      elif path.startswith('/api/empresa/layout/'):result=loads.layout(path.rsplit('/',1)[-1],actor)
      elif path=='/api/calidad/registros':result=quality.get(q,actor)
+     elif path=='/api/calidad/tablero':result=quality.dashboard(actor)
      elif path in ('/api/calidad/excel','/api/calidad/pdf'):result=quality.export(q,actor,path.endswith('/pdf'))
      elif path.startswith('/api/calidad/archivo/'):result=quality.file(path.rsplit('/',1)[-1],actor)
      elif path=='/api/crm/meta':result=crm.metadata(actor,int(q.get('empresa','0')))
@@ -471,9 +488,16 @@ def create_handler(store):
      if self.path not in actions:raise ValueError('Acción de seguridad no disponible.')
      return self.reply(200,actions[self.path](data,actor))
     if self.path.startswith(('/api/empresa/','/api/calidad/','/api/crm/')):
+     if self.path=='/api/empresa/edicion':return self.reply(200,enterprise.save_edition(self.read_body(),actor))
+     crm_actions={'/api/crm/vendedores':crm.add_seller,'/api/crm/comisiones':crm.commission,'/api/crm/acceso-tablero':crm.grant_dashboard,'/api/crm/planes':crm.save_plan}
+     if self.path in crm_actions:return self.reply(200,crm_actions[self.path](self.read_body(),actor))
      data=self.read_body();actions={'/api/empresa/taxonomia':store.taxonomy.save,'/api/empresa/config':enterprise.save,'/api/empresa/activar':enterprise.activate,'/api/empresa/restablecer':enterprise.reset,'/api/empresa/sucursales':lambda d,a:save_branch(store,d,a),'/api/empresa/cargas':loads.run,'/api/calidad/guardar':quality.save,'/api/calidad/estado':quality.transition,'/api/calidad/version':quality.new_version,'/api/calidad/archivo':quality.attach,'/api/crm/asignar':crm.assign,'/api/crm/oportunidades':crm.save,'/api/crm/seguimiento':crm.follow}
      if self.path not in actions:raise ValueError('Acción no disponible.')
      return self.reply(200,actions[self.path](data,actor))
+    if self.path.startswith('/api/finanzas/'):
+     actions={'/api/finanzas/conceptos':finance.concept,'/api/finanzas/cuentas':finance.account,'/api/finanzas/pagos':finance.payment,'/api/finanzas/cancelar':finance.cancel}
+     if self.path not in actions:raise ValueError('Acción financiera no disponible.')
+     return self.reply(200,actions[self.path](self.read_body(),actor))
     if self.path=='/api/logout' and self.command=='POST':
      store.logout(self.token);return self.reply(200,{'ok':True},cookie='jm_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0')
     if self.path.startswith('/api/inventarios/') and self.command=='POST':
@@ -551,11 +575,11 @@ def main():
   admin=json.loads(args.admin_seed.read_text(encoding='utf-8-sig'))
   if not isinstance(admin,dict) or not re.fullmatch('[0-9a-f]{32}',str(admin.get('salt',''))) or not re.fullmatch('[0-9a-f]{64}',str(admin.get('password_hash',''))):parser.error('Semilla de administrador inválida.')
  configpath=args.config.resolve()
- if not configpath.exists():configpath.write_text(json.dumps({'host':'0.0.0.0','port':8080},indent=2),encoding='utf8')
+ if not configpath.exists():configpath.write_text(json.dumps({'host':'0.0.0.0','port':8098},indent=2),encoding='utf8')
  config=json.loads(configpath.read_text(encoding='utf-8-sig'))
  if 'password' in config or 'user' in config:
   config={k:v for k,v in config.items() if k not in ('password','user')};configpath.write_text(json.dumps(config,indent=2),encoding='utf8')
- port=args.port if args.port is not None else config.get('port',8080)
+ port=args.port if args.port is not None else config.get('port',8098)
  if type(port) is not int or not 0<=port<=65535:parser.error('Puerto inválido: usa 1–65535, o 0 para asignación automática.')
  host=args.host or config.get('host','0.0.0.0')
  data_dir=pathlib.Path(args.data_dir or config.get('data_dir','data'))
@@ -572,7 +596,9 @@ def main():
   if log_path.exists():shutil.copy2(log_path,log_dir/'server.log.previous')
   sys.stdout=sys.stderr=log_path.open('w',encoding='utf8',buffering=1)
  handler=create_handler(store);handler.commercial.sync.start()
- server=http.server.ThreadingHTTPServer((host,port),handler);server.daemon_threads=True;port=server.server_port
+ try:server=http.server.ThreadingHTTPServer((host,port),handler)
+ except OSError as error:raise SystemExit(f'El puerto {port} esta ocupado o no esta disponible. Libera el puerto y vuelve a iniciar. No se utilizara otro puerto. ({error})')
+ server.daemon_threads=True;port=server.server_port
  print(f'\n{TITLE} v{VERSION}\n{SUPPORT_LINE}\nPuerto: {port}\nLocal: http://127.0.0.1:{port}\nRed/VPN: http://IP-DEL-SERVIDOR:{port}\nSuperadministrador: {ADMIN_EMAIL}\nInicia sesión con la contraseña configurada.\nDatos: {store.path}\nCtrl+C para detener.\n',flush=True)
  try:server.serve_forever()
  except KeyboardInterrupt:pass

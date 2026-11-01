@@ -18,6 +18,9 @@ LAYOUTS={
  'sucursales':('Sucursales','SUCURSALES',{'A':'NOMBRE','B':'SERIE'},'empresa','Configura las sucursales en Empresa; usa series únicas y conserva los nombres históricos.'),
  'usuarios':('Usuarios y perfiles','USUARIOS',{'A':'CORREO','B':'NOMBRE','C':'PERFIL','D':'SUCURSALES','E':'ALMACENES'},'empresa','Captura usuarios desde Administración. Las contraseñas se establecen individualmente, fuera del layout.')}
 QUALITY={'documentos':'documents','formatos':'forms','registros':'records','auditorias':'audits','no-conformidades':'findings','acciones-correctivas':'actions'}
+from quality_lite import EXTRA_MODULES
+QUALITY.update({key.replace('_','-'):key for key in EXTRA_MODULES})
+LAYOUTS['areas']=('Áreas solicitantes','AREAS',{'A':'NOMBRE'},'requisiciones','Una fila por área. Revisa y aplica el archivo en Layouts y cargas; no se precargan áreas.')
 def column(index):
  result='';index+=1
  while index:index,r=divmod(index-1,26);result=chr(65+r)+result
@@ -48,7 +51,7 @@ class CatalogLoads:
  def listed(self,actor):
   from permissions import enabled_modules
   enabled=enabled_modules(actor)
-  return {'layouts':[{'id':id,'nombre':v[0],'instrucciones':v[4],'url':'/api/empresa/layout/'+id,'cargaCentral':id in ('compras','ventas','pdv') or id in QUALITY} for id,v in LAYOUTS.items() if v[3] in enabled or actor['role']=='superadmin' or v[3]=='ventasins' and 'expendios' in enabled]}
+  return {'layouts':[{'id':id,'nombre':v[0],'instrucciones':v[4],'url':'/api/empresa/layout/'+id,'cargaCentral':id in ('compras','ventas','pdv','areas') or id in QUALITY} for id,v in LAYOUTS.items() if v[3] in enabled or actor['role']=='superadmin' or v[3]=='ventasins' and 'expendios' in enabled]}
  def layout(self,id,actor):
   if id not in {r['id'] for r in self.listed(actor)['layouts']}:raise PermissionError('Layout no disponible para tu perfil.')
   title,sheet,headers,module,note=LAYOUTS[id]
@@ -78,9 +81,9 @@ class CatalogLoads:
   return hashlib.sha256(json.dumps(values,ensure_ascii=False,sort_keys=True).encode()).hexdigest()
  def run(self,data,actor):
   id=data.get('modulo');review=data.get('revisar') is True;require_module(actor,'cargar_maestro')
-  if id not in ('compras','ventas','pdv') and id not in QUALITY:raise ValueError('Usa el importador indicado en el layout de este módulo.')
+  if id not in ('compras','ventas','pdv','areas') and id not in QUALITY:raise ValueError('Usa el importador indicado en el layout de este módulo.')
   require_module(actor,LAYOUTS[id][3])
-  if id not in QUALITY and actor['role'] not in ('superadmin','auxti'):raise PermissionError('Solo administración ejecuta cargas iniciales enlazadas.')
+  if id not in QUALITY and id!='areas' and actor['role'] not in ('superadmin','auxti'):raise PermissionError('Solo administración ejecuta cargas iniciales enlazadas.')
   try:raw=base64.b64decode(data.get('contenido',''),validate=True)
   except Exception:raise ValueError('Archivo inválido.')
   if not raw or len(raw)>15*1024*1024:raise ValueError('Usa un XLSX de hasta 15 MB.')
@@ -88,7 +91,19 @@ class CatalogLoads:
   with self.store.atomic(rollback=review) as db:
    fingerprint=self.fingerprint(db)
    if not review and (data.get('huellaActual')!=fingerprint or data.get('huellaArchivo')!=digest):raise Conflict('La base o el archivo cambió. Revisa nuevamente la carga.')
-   if id=='compras':
+   if id=='areas':
+    self.req.areas.authorize(actor);rows,_=read_rows(raw,'AREAS.xlsx',sheet_name='AREAS');seen=set();count=0
+    from requisiciones import norm
+    for number,row in rows[1:]:
+     name=str(row.get('A','')).strip()
+     if not name:continue
+     if norm(name) in seen:raise ValueError('Área repetida en la fila '+str(number)+'.')
+     seen.add(norm(name));catalog=self.req.areas.catalog(db)
+     if any(norm(r['nombre'])==norm(name) for r in catalog['areas']):continue
+     self.req.areas.save({'nombre':name,'revision':catalog['revision']},actor);count+=1
+    if not seen:raise ValueError('El layout no contiene áreas.')
+    result={'areasAgregadas':count,'filasRevisadas':len(seen)}
+   elif id=='compras':
     require_module(actor,'requisiciones');require_module(actor,'pedidoscompra')
     rev=db.execute('SELECT revision FROM catalog WHERE id=1').fetchone()[0]
     result=self.purchases.run({**data,'archivo':'INICIAL.xlsx','revision':rev,'revisar':False},actor)

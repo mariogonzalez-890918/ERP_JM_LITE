@@ -8,7 +8,7 @@ param(
  [string]$ActivationVerifier,
  [string]$LabRoot=(Join-Path $env:LOCALAPPDATA 'ERP-JM-Lite-Lab'),
  [string]$VmName='ERP-JM-Lite-Win11-Lab',
- [int]$Port=8090
+ [ValidateSet(8098)][int]$Port=8098
 )
 $ErrorActionPreference='Stop'
 New-Item -ItemType Directory -Path $LabRoot -Force | Out-Null

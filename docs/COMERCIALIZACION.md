@@ -6,19 +6,19 @@ Estado: paquete piloto 0.1.0-dev. Producto independiente de ERP JM Lite. No se h
 
 Servidor web Python x64 con SQLite en disco local del servidor. El ejecutable incorpora Python, SQLite, ReportLab, Pillow y las bibliotecas nativas recogidas por PyInstaller. El paquete agrega Microsoft Visual C++ x64; no se requiere un compilador C++. Los clientes usan un navegador moderno y se conectan a `http://SERVIDOR:PUERTO`. No requieren instalar Python, Office, SQLite ni C++.
 
-La instalación pide un puerto entre 1 y 65535. Debe reservarse un puerto fijo para que los usuarios conserven su dirección al reiniciar. Para pruebas, `--port 0` permite al sistema operativo elegir uno libre; el servidor informa el puerto real. Las direcciones de la interfaz son relativas y siguen el puerto usado para abrir la aplicación.
+La instalación utiliza exclusivamente TCP 8098 y escucha en todas las interfaces IPv4 (`0.0.0.0`), incluidas las direcciones LAN y VPN. Si el puerto está ocupado o no está disponible, avisa y no selecciona otro. El acceso se realiza mediante `http://IP-DEL-SERVIDOR:8098`. El arranque técnico para pruebas todavía permite `--port 0` en bases aisladas; el instalador comercial solo acepta 8098.
 
 ## Instalación y arranque automático
 
 Extraer todo `ERP_JM_Lite_Windows_Piloto.zip` y ejecutar PowerShell como administrador:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install_windows.ps1 -Port 8090 -OpenFirewall
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install_windows.ps1 -OpenFirewall
 ```
 
 Se verifica el manifiesto SHA256 y la firma Microsoft del redistribuible. El programa se instala en `Program Files\ERP JM Lite`; la configuración, las bases y los registros quedan en `ProgramData\ERP JM Lite`, con acceso a SYSTEM y Administradores. La tarea `ERP-JM-Lite` ejecuta el servidor al iniciar Windows con la cuenta SYSTEM y sin sesión de usuario. Ante fallos intenta reiniciar hasta cinco veces, cada minuto. Evita instancias duplicadas. El navegador puede minimizarse o cerrarse: no controla la vida del servidor.
 
-La regla opcional de firewall acepta el puerto solamente en perfiles Privado/Dominio y desde la subred local. Redes adicionales requieren ampliar expresamente ese alcance. La instalación comprueba HTTP antes de informar éxito. Los registros de la ejecución actual y anterior quedan en `ProgramData\ERP JM Lite\logs`.
+La regla opcional de firewall permite TCP 8098 para el ejecutable instalado en todos los perfiles y desde cualquier dirección, para aceptar también redes VPN como ZeroTier, Radmin y Hamachi. La conectividad depende además de las reglas de la VPN. La instalación comprueba HTTP antes de informar éxito. Los registros de la ejecución actual y anterior quedan en `ProgramData\ERP JM Lite\logs`.
 
 ## Administrador
 

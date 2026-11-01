@@ -4,7 +4,7 @@ from xml.sax.saxutils import escape
 from permissions import require_module
 from requisiciones import Conflict,now,read_rows,norm
 PURCHASE={'A':'CLAVE PROVEEDOR','B':'SKU','C':'STATUS DE COMPRA','D':'SKU NUEVO','E':'PRODUCTO','F':'CATEGORIA','G':'SUBCATEGORIA','H':'DESCRIPCION','I':'PRECIO DE COMPRA','J':'IMPUESTO DE COMPRA','K':'COSTO','L':'U_M','M':'UM_COMPRA','N':'UM_ENTREGA','O':'PROVEEDOR PRINCIPAL'}
-SALES={'A':'SKU','B':'PRODUCTOS Y SERVICIOS','C':'CATEGORIA','D':'SUBCATEGORIA','E':'LINEA','F':'MODULO ID PDV','G':'EXPENDIO','H':'DESCRIPCION','I':'PRECIO PUBLICO','J':'PRECIO RUTA','K':'PRECIO DESPACHO','N':'IMPUESTO','O':'UOM','S':'ESTADO','W':'CANAL'}
+SALES={'A':'SKU','B':'PRODUCTOS Y SERVICIOS','C':'CATEGORIA','D':'SUBCATEGORIA','E':'LINEA','F':'MODULO ID PDV','G':'EXPENDIO','H':'DESCRIPCION','I':'PRECIO PUBLICO','J':'PRECIO MINIMO','K':'PRECIO REMATE','N':'IMPUESTO','O':'UOM','S':'ESTADO','W':'CANAL'}
 LAYOUTS={
  'compras':('SKU Compras e insumos','PRODUCTOS',PURCHASE,'compras','Genera o conserva SKU y enlaza los materiales de requisiciones, compras e inventarios.'),
  'ventas':('SKU Ventas','SUGERIDO',SALES,'ventas','Conserva SKU históricos y enlaza productos, listas de precios y canales de venta.'),

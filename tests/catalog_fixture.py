@@ -6,6 +6,9 @@ def install(store):
  from areas import AreaStore
  AreaStore(store,['Administración','Compras','Ventas','Almacén','Calidad','Operaciones','Sistemas'])
  with store.connect() as db:
+  from product_options import initialize
+  initialize(db)
+  db.execute("INSERT OR IGNORE INTO app_product_options VALUES('test-pieza','unidad','PIEZA','H87',1,1)")
   for name,series in [('CENTRAL','REQ-CEN'),('NORTE','REQ-NOR'),('SUR','REQ-SUR'),('ORIENTE','REQ-ORI')]:db.execute('INSERT OR IGNORE INTO app_branches VALUES(?,?,1)',(name,series))
   for scope,groups in [('compras',PURCHASE),('ventas',SALES)]:
    for kind,values in groups.items():

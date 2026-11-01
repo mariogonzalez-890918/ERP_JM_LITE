@@ -8,7 +8,7 @@ a = Analysis(
     [str(server_root / 'server.py')],
     pathex=[],
     binaries=[],
-    datas=[(str(server_root / 'public'), 'public')]+[(str(server_root / name), '.') for name in ('catalogos.json','initial.json','initial-ventas.json','initial-requisiciones.json')]+([(str(server_root / 'initial-admin.json'), '.')] if (server_root / 'initial-admin.json').exists() else []),
+    datas=[(str(server_root / 'public'), 'public')]+[(str(server_root / name), '.') for name in ('catalogos.json','sat-catalogos.json.gz','initial.json','initial-ventas.json','initial-requisiciones.json')]+([(str(server_root / 'initial-admin.json'), '.')] if (server_root / 'initial-admin.json').exists() else []),
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

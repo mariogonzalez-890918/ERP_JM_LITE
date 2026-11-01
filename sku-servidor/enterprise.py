@@ -3,7 +3,7 @@ import base64,contextlib,datetime,hashlib,hmac,io,json,pathlib,re,secrets,sqlite
 from app_info import ADMIN_EMAIL,is_internal_admin
 from requisiciones import Conflict,now,text
 from sucursales import BRANCHES,save_branch
-PRESERVED={'app_taxes','app_product_taxes','sku_taxonomy','app_internal_admins','user_2fa','users','sessions','role_modules','permission_features','app_branches','app_company','app_license','app_audit','app_meta','cm_companies','cm_revision','cm_sequences','cm_sequence_registry','req_branches','req_series_registry','req_areas','req_report_features','req_reports','sales_features','po_settings','po_features','inv_features','inv_concepts'}
+PRESERVED={'app_product_options','app_taxes','app_product_taxes','sku_taxonomy','app_internal_admins','user_2fa','users','sessions','role_modules','permission_features','app_branches','app_company','app_license','app_audit','app_meta','cm_companies','cm_revision','cm_sequences','cm_sequence_registry','req_branches','req_series_registry','req_areas','req_report_features','req_reports','sales_features','po_settings','po_features','inv_features','inv_concepts'}
 
 class Enterprise:
  def __init__(self,store):

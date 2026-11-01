@@ -52,6 +52,7 @@ def main():
   clean=pathlib.Path(folder);server=clean/'sku-servidor';server.mkdir();(clean/'sku').mkdir()
   for path in (ROOT/'sku-servidor').glob('*.py'):shutil.copy2(path,server/path.name)
   shutil.copy2(ROOT/'sku-servidor/catalogos.json',server/'catalogos.json')
+  shutil.copy2(ROOT/'sku-servidor/sat-catalogos.json.gz',server/'sat-catalogos.json.gz')
   shutil.copytree(ROOT/'sku-servidor/public',server/'public',ignore=shutil.ignore_patterns('logo.png'))
   shutil.copy2(ROOT/'sku/ERP_JM_Lite.spec',clean/'sku/ERP_JM_Lite.spec')
   initializer=runpy.run_path(str(ROOT/'tools/inicializar.py'))

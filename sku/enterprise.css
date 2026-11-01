@@ -1,4 +1,5 @@
 /* Identidad comercial JM: navegación azul y documentos de trabajo compactos. */
+#skuOptionMessage,#skuSatInfo{color:inherit}
 :root{--green:#0067a5;--accent:#0067a5;--ink:#1b3046;--muted:#52677b;--line:#ced9e3;--canvas:#edf2f6}
 body{font-family:'Segoe UI',Arial,sans-serif;background:var(--canvas);color:var(--ink)}
 #jmSidebar{background:#123454;border-right:1px solid #244e70;border-radius:0;padding-top:20px}

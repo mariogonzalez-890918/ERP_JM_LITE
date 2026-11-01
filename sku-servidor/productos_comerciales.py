@@ -24,19 +24,21 @@ def catalog(cm,company,actor):
   for sku,_,_ in rows:
    tax=configured(db,company,'ventas',sku,strict=False)
    if tax:taxes[sku]=tax
- return {'impuestos':tax_list,'productos':[{'sku':s,'revision':r,**json.loads(p),**taxes.get(s,{}),'canales':channels(json.loads(p)),'precios':{l:prices[(l,s)]['precio'] for l in ('PUBLICO','RUTA','DESPACHO') if (l,s) in prices}} for s,r,p in rows],'tipos':TIP,'categorias':CAT,'subcategorias':SUB,'modulos':PDV}
+ from product_options import listed as list_options
+ with cm.store.connect() as db:options=list_options(db)
+ return {'opciones':options,'impuestos':tax_list,'productos':[{'sku':s,'revision':r,**json.loads(p),**taxes.get(s,{}),'canales':channels(json.loads(p)),'precios':{l:prices[(l,s)]['precio'] for l in ('PUBLICO','MINIMO','REMATE','RUTA','DESPACHO') if (l,s) in prices}} for s,r,p in rows],'tipos':TIP,'categorias':CAT,'subcategorias':SUB,'modulos':PDV}
 
 def save_product(cm,data,actor):
- cm.admin(actor);company=data.get('empresa');cm.company(company,actor,True);name=text(data.get('nombre',''),300);unit=text(data.get('unidad',''),60);selected=data.get('canales',[]);sku=str(data.get('sku','')).strip().upper();original=data.get('skuOriginal');rate=amount(data.get('iva','0'))
+ cm.admin(actor);company=data.get('empresa');cm.company(company,actor,True);name=text(data.get('nombre',''),300);unit=text(data.get('unidad','SELECCIONADA' if data.get('unidadId') else ''),100);selected=data.get('canales',[]);sku=str(data.get('sku','')).strip().upper();original=data.get('skuOriginal');rate=amount(data.get('iva','0'))
  tax_id=data.get('impuestoId')
  if tax_id:
   from impuestos import selected as selected_tax
   with cm.store.connect() as db:_,tax_rate=selected_tax(db,company,tax_id)
   rate=Decimal(tax_rate)
  if not name or not unit or not isinstance(selected,list) or not selected or len(set(selected))!=len(selected) or set(selected)-{'ventasins','expendios'} or rate>100:raise ValueError('Indica descripción, unidad, 0% sin IVA, 8% IEPS o 16% IVA y al menos un canal.')
- prices={l:optional_price((data.get('precios') or {}).get(l)) for l in ('PUBLICO','RUTA','DESPACHO')}
+ prices={l:optional_price((data.get('precios') or {}).get(l)) for l in ('PUBLICO','MINIMO','REMATE','RUTA','DESPACHO')}
  if 'ventasins' in selected and prices['PUBLICO'] is None:raise ValueError('Institucionales requiere precio público con IVA.')
- if 'expendios' in selected and all(prices[k] is None for k in ('RUTA','DESPACHO')):raise ValueError('TPV requiere al menos un precio de ruta o despacho.')
+ if 'expendios' in selected and all(prices[k] is None for k in ('PUBLICO','MINIMO','REMATE','RUTA','DESPACHO')):raise ValueError('TPV requiere al menos un precio configurado.')
  with cm.store.connect() as db:
   db.execute('BEGIN IMMEDIATE');sale_row=db.execute('SELECT revision,payload FROM sales_catalog WHERE id=1').fetchone();sales=json.loads(sale_row[1]);state=sales['state'];old=None
   if original:
@@ -57,14 +59,21 @@ def save_product(cm,data,actor):
   value={'nombre':name,'unidad':unit,'iva':format(rate,'f'),'tipo':text(data.get('tipo',''),100),'categoria':text(data.get('categoria',''),100),'subcategoria':text(data.get('subcategoria',''),100),'linea':text(data.get('linea',''),100),'modulo':text(data.get('modulo',''),100),'institucional':'ventasins' in selected,'expendio':'expendios' in selected,'activo':data.get('activo',True) is True,'origen':'MANUAL'}
   if tax_id:value['iva']=json.loads(old[1]).get('iva') if old else None
   previous=json.loads(old[1]) if old else {}
+  from product_options import resolve as resolve_option
+  unit_id,unit_name,unit_sat=resolve_option(db,'unidad',data.get('unidadId'),unit,previous.get('unidad',''))
+  line_id,line_name,_=resolve_option(db,'linea',data.get('lineaId'),text(data.get('linea',''),100),previous.get('linea',''))
+  value.update({'unidad':unit_name,'unidadId':unit_id,'linea':line_name,'lineaId':line_id})
   for field,limit in [('claveAlterna',80),('claveSat',8),('unidadSat',10),('observaciones',2000)]:value[field]=text(data.get(field,previous.get(field,'')),limit)
-  if value['claveSat'] and (len(value['claveSat'])!=8 or not value['claveSat'].isdigit()):raise ValueError('La clave SAT del producto debe contener 8 dígitos.')
+  from sat_catalogs import validate as validate_sat
+  value['claveSat']=validate_sat('productos',value['claveSat'])
+  if unit_sat and value['unidadSat'] and value['unidadSat']!=unit_sat:raise ValueError('La clave SAT de unidad debe coincidir con la unidad de venta configurada.')
+  value['unidadSat']=validate_sat('unidades',unit_sat or value['unidadSat'])
   kind=data.get('naturaleza',previous.get('naturaleza','PRODUCTO'))
   if kind not in ('PRODUCTO','SERVICIO'):raise ValueError('Selecciona producto o servicio.')
   value['naturaleza']=kind
   db.execute('INSERT INTO cm_products VALUES(?,?,?) ON CONFLICT(sku) DO UPDATE SET payload=excluded.payload,revision=excluded.revision',(sku,dumps(value),(old[0] if old else 0)+1))
   for listing,price in prices.items():
-   enabled=listing=='PUBLICO' and 'ventasins' in selected or listing!='PUBLICO' and 'expendios' in selected
+   enabled=listing in ('PUBLICO','MINIMO','REMATE') or listing in ('RUTA','DESPACHO') and 'expendios' in selected
    if price is None or not enabled:db.execute("DELETE FROM cm_prices WHERE company=? AND list=? AND sku=? AND customer=''",(company,listing,sku));continue
    previous=db.execute("SELECT revision FROM cm_prices WHERE company=? AND list=? AND sku=? AND customer=''",(company,listing,sku)).fetchone()
    db.execute("INSERT INTO cm_prices VALUES(?,?,?,'',?,?) ON CONFLICT(company,list,sku,customer) DO UPDATE SET revision=excluded.revision,payload=excluded.payload",(company,listing,sku,(previous[0] if previous else 0)+1,dumps({'precio':price,'origen':'MANUAL','fecha':now()})))

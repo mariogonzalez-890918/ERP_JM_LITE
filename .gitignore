@@ -30,6 +30,7 @@
 !/sku-servidor/*.bat
 !/sku-servidor/*.ps1
 !/sku-servidor/catalogos.json
+!/sku-servidor/sat-catalogos.json.gz
 !/sku-servidor/LEEME.md
 !/sku-servidor/public/
 /sku-servidor/public/*
@@ -40,6 +41,7 @@
 /tools/*
 !/tools/inicializar.py
 !/tools/build_public.py
+!/tools/build_sat_catalogs.py
 !/tools/install_windows.ps1
 !/tools/create_windows_lab.ps1
 !/tools/verify_windows.ps1
@@ -155,6 +157,7 @@
 !/tests/test_finance.py
 !/tests/test_company_taxes.py
 !/tests/test_sku_ficha.py
+!/tests/test_sat_options.py
 !/tests/test_crm_management.py
 !/tools/provision_activation.py
 !/sku-servidor/public/crm.html

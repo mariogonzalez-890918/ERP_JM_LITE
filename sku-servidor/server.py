@@ -331,6 +331,12 @@ def create_handler(store):
     try:
      q={k:v[0] for k,v in parse_qs(urlsplit(self.path).query).items()}
      if path=='/api/empresa/taxonomia':result=store.taxonomy.get(actor)
+     elif path=='/api/empresa/sat':
+      from sat_catalogs import search
+      result=search(q)
+     elif path=='/api/empresa/catalogos-producto':
+      from product_options import listed
+      with store.connect() as db:result={'registros':listed(db),'puedeConfigurar':actor['role']=='superadmin'}
      elif path=='/api/seguridad/estado':result=store.security.status(actor)
      elif path=='/api/empresa/config':result=enterprise.get(actor)
      elif path=='/api/empresa/impuestos':result=enterprise.taxes(int(q.get('empresa','0')),actor)
@@ -504,6 +510,9 @@ def create_handler(store):
      if self.path not in actions:raise ValueError('Acción de seguridad no disponible.')
      return self.reply(200,actions[self.path](data,actor))
     if self.path.startswith(('/api/empresa/','/api/calidad/','/api/crm/')):
+     if self.path=='/api/empresa/catalogos-producto':
+      from product_options import save
+      return self.reply(200,save(store,self.read_body(),actor))
      if self.path=='/api/empresa/impuestos/importar':
       from impuestos_import import run
       return self.reply(200,run(enterprise,self.read_body(),actor))

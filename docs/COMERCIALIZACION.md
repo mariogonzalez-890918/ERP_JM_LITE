@@ -59,6 +59,14 @@ Desde esa pantalla se agregan impuestos y se descarga el layout XLSX IMPUESTOS p
 
 Referencia funcional consultada: [datos generales de productos y servicios SAE](https://saeportaldeclientes.aspel.com.mx/crear-o-dar-de-alta-productos-y-servicios/) y [precios e impuestos SAE](https://saeportaldeclientes.aspel.com.mx/crear-o-dar-de-alta-productos-y-servicios-precios-e-impuestos/). Se tomaron como referencia la organización y los campos; la implementación y la interfaz son propias.
 
+La ficha utiliza precios Público, Mínimo y Remate, guardados como listas independientes. Las listas históricas de instalaciones anteriores se conservan para sus documentos; sus importes no se reinterpretan como mínimo o remate. Las cajas nuevas pueden elegir cualquiera de las tres listas actuales. Los layouts nuevos usan PRECIO MINIMO y PRECIO REMATE y siguen reconociéndose los encabezados de archivos históricos.
+
+Las unidades de venta y líneas se seleccionan desde catálogos configurados por Superadministrador, con revisión y desactivación sin borrar historial. La línea admite vacío. Cada unidad configurable exige una clave SAT válida; el producto hereda esa clave y el servidor rechaza unidades inventadas o claves incompatibles. Los nombres históricos sin catálogo se conservan si no se modifican.
+
+Se incluye una copia local completa de c_ClaveProdServ (52,513 claves) y c_ClaveUnidad (2,418), del [archivo oficial SAT del 29 de octubre de 2026](http://omawww.sat.gob.mx/tramitesyservicios/Paginas/documentos/catCFDI_V_4_20261029.xls), enlazado en el [Anexo 20](http://omawww.sat.gob.mx/tramitesyservicios/Paginas/anexo_20.htm). El buscador funciona sin conexión, por clave o descripción, y filtra las vigencias del archivo. Son catálogos de consulta, no editables por usuarios. El recurso incluye URL, versión y SHA256 del original. Esta incorporación no implica timbrado de CFDI.
+
+Para regenerar el recurso a partir de una descarga oficial verificada: `python tools/build_sat_catalogs.py --source ARCHIVO.xls --url URL-OFICIAL-SAT --version AAAA-MM-DD`. Requiere xlrd de requirements-dev; los clientes y el EXE usan el recurso comprimido y no requieren Excel ni xlrd.
+
 Gerencia y Superadministrador asignan y reasignan clientes. Solo esos perfiles consultan o configuran comisiones: sobre facturado o cobrado, antes de impuestos o con impuestos. CXC conserva la regla vigente al registrar cada factura y el subtotal capturado; los cobros parciales y reembolsos se prorratean. El reporte separa totales por moneda y se exporta a CSV, XLSX y PDF.
 
 ## Pendientes antes de vender

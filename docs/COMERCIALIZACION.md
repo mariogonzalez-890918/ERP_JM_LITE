@@ -49,6 +49,12 @@ La automatización instala el paquete en la VM, registra una comprobación inici
 
 Identidad JM propia: navegación azul, formularios y tablas compactos, cabeceras de documentos y logotipo vectorial. No incorpora vistas ni código de Odoo, SAP, Oracle o Aspel. Se conserva la lógica y las rutas de los módulos existentes. Los identificadores internos heredados no son la marca del producto.
 
+Empresa y configuración permite subir, sustituir o quitar un logo PNG/JPG por razón social. Valida el contenido, limita el archivo a 2 MB y guarda una copia PNG normalizada en SQLite. Solo Superadministrador puede modificarlo; consultar un logo requiere acceso a su razón social.
+
+Los impuestos configurables son tasas porcentuales trasladadas, independientes por empresa y sin precarga. Pueden ligarse a SKU de compras o ventas; los productos de venta también los seleccionan durante su captura. Ventas desglosa el impuesto incluido en el precio y compras lo agrega al costo. Cambiar una tasa no recalcula documentos emitidos. Esta configuración no implementa retenciones ni timbrado fiscal.
+
+Gerencia y Superadministrador asignan y reasignan clientes. Solo esos perfiles consultan o configuran comisiones: sobre facturado o cobrado, antes de impuestos o con impuestos. CXC conserva la regla vigente al registrar cada factura y el subtotal capturado; los cobros parciales y reembolsos se prorratean. El reporte separa totales por moneda y se exporta a CSV, XLSX y PDF.
+
 ## Pendientes antes de vender
 
 Probar cada sistema de la matriz, instalación/actualización/desinstalación, recuperación desde respaldo, navegadores y flujos completos; generalizar sucursales y parámetros heredados; configurar cada empresa; integrar HTTPS y licenciamiento; firmar el paquete propio y revisar las licencias de redistribución; ejecutar carga de 40–50 usuarios y decidir con evidencia si SQLite es suficiente. No se han certificado esos puntos ni migrado bases.

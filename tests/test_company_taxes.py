@@ -18,5 +18,9 @@ class CompanyTaxesTests(unittest.TestCase):
   product=next(p for p in c.value('/api/comercial/productos?empresa='+str(c.company))['productos'] if p['sku']==sku);self.assertEqual(product['iva'],'5.5');self.assertEqual(product['impuestoId'],tax)
   from comercial import tax_line
   line=tax_line('1','105.50',product['iva']);self.assertEqual(line['base'],'100.00');self.assertEqual(line['impuesto'],'5.50')
+  import uuid
+  doc=c.value('/api/comercial/pedidos',{'empresa':c.company,'sucursal':'CENTRAL','clave':uuid.uuid4().hex,'partidas':[{'sku':sku,'cantidad':'1'}]})['documento'];self.assertEqual(doc['base'],'100.00');self.assertEqual(doc['partidas'][0]['tipoImpuesto'],'Traslado especial')
+  c.value('/api/empresa/impuestos',{'empresa':c.company,'id':tax,'revision':1,'nombre':'Nueva tasa','tasa':'10'})
+  self.assertEqual(c.value('/api/comercial/documento?id='+doc['id'])['impuesto'],'5.50')
 
 if __name__=='__main__':unittest.main()

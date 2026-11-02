@@ -24,7 +24,7 @@ def save(db,data):
  name=text(data.get('nombre',''),100)
  try:rate=Decimal(str(data.get('tasa')))
  except (InvalidOperation,TypeError):raise ValueError('Tasa inválida.')
- if not name or not rate.is_finite() or not 0<=rate<=100 or rate.as_tuple().exponent < -4 or type(data.get('activo',True)) is not bool:raise ValueError('Indica nombre y tasa de 0 a 100 con hasta cuatro decimales.')
+ if not name or not rate.is_finite() or not -100<=rate<=100 or rate.as_tuple().exponent < -4 or type(data.get('activo',True)) is not bool:raise ValueError('Indica nombre y tasa de -100 a 100 con hasta cuatro decimales. Las retenciones son negativas.')
  company=data['empresa'];id=data.get('id') or secrets.token_hex(16);row=db.execute('SELECT company,revision FROM app_taxes WHERE id=?',(id,)).fetchone()
  from requisiciones import norm
  if any(norm(n)==norm(name) and i!=id for i,n in db.execute('SELECT id,name FROM app_taxes WHERE company=?',(company,))):raise ValueError('Ya existe un impuesto con ese nombre en esta empresa.')

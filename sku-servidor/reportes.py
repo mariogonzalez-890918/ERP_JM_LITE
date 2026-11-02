@@ -164,8 +164,9 @@ class ReportStore:
   c['impuestos']=[]
   for tax in taxes:
    if not isinstance(tax,dict):raise ValueError('Impuesto inválido.')
-   label=text(tax.get('nombre',''),40);rate=dec(tax.get('tasa'))
-   if not label or rate>100:raise ValueError('Indica nombre y porcentaje de impuesto entre 0 y 100.')
+   from comercial import tax_rate
+   label=text(tax.get('nombre',''),40);rate=tax_rate(tax.get('tasa'))
+   if not label:raise ValueError('Indica nombre y porcentaje de impuesto entre -100 y 100.')
    c['impuestos'].append({'nombre':label,'tasa':format(rate,'f')})
   return c
  def save(self,data,actor):

@@ -60,6 +60,12 @@ class Enterprise:
   with self.store.connect() as db:
    db.execute('BEGIN IMMEDIATE');rev=db.execute('SELECT revision FROM app_company WHERE id=1').fetchone()[0]
    if data.get('revision')!=rev:raise Conflict('La empresa cambió. Actualiza antes de guardar.')
+   principal=data.get('razonSocialPrincipal')
+   if principal not in (None,''):
+    if type(principal) is not int:raise ValueError('Selecciona la razón social principal.')
+    row=db.execute('SELECT payload FROM cm_companies WHERE id=?',(principal,)).fetchone()
+    if not row or json.loads(row[0]).get('eliminada'):raise ValueError('Razón social principal no disponible.')
+    value['razonSocialPrincipal']=principal
    db.execute('UPDATE app_company SET revision=revision+1,payload=? WHERE id=1',(json.dumps(value,ensure_ascii=False),));self.audit(db,actor,'empresa_guardada',{'revision':rev+1})
   return {'ok':True}
  def taxes(self,company,actor):

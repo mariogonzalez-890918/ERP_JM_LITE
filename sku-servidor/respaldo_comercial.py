@@ -1,7 +1,7 @@
 """Respaldo comercial completo; restauración sin borrar ventas ni movimientos posteriores."""
 import json,re,sqlite3
 from decimal import Decimal
-from comercial import amount,tax_line,money
+from comercial import amount,tax_line,money,tax_rate,LISTS
 from requisiciones import BRANCHES,Conflict
 
 TABLES=('cm_companies','cm_access','cm_products','cm_prices','cm_customers','cm_templates','cm_reports','cm_boxes','cm_sessions','cm_sequences','cm_sequence_registry','cm_documents','cm_versions','cm_cancellations','cm_cash_moves','cm_audit','cm_revision','cm_source')
@@ -31,9 +31,9 @@ def validate(db,data):
  for r in companies.values():
   v=json.loads(r['payload']);check(type(r['id']) is int and r['id']>0 and isinstance(v.get('nombre'),str) and isinstance(v.get('sucursales'),list) and all(b in BRANCHES for b in v['sucursales']),'Razón social inválida.')
  for sku,r in products.items():
-  p=json.loads(r['payload']);check(re.fullmatch('[A-Z0-9]{14}',sku) and p.get('nombre') and p.get('unidad') and (p.get('iva') is None or amount(p.get('iva')) in (0,8,16)),'Producto comercial inválido.')
+  p=json.loads(r['payload']);check(re.fullmatch('[A-Z0-9]{14}',sku) and p.get('nombre') and p.get('unidad') and (p.get('iva') is None or tax_rate(p.get('iva'))>-100),'Producto comercial inválido.')
  for r in dictionaries(data,'cm_prices'):
-  check(r['sku'] in products and r['list'] in ('PUBLICO','RUTA','DESPACHO'),'Precio sin producto/lista.');amount(json.loads(r['payload'])['precio'])
+  check(r['sku'] in products and r['list'] in LISTS,'Precio sin producto/lista.');amount(json.loads(r['payload'])['precio'])
   if r['customer']:check(r['customer'] in customers and customers[r['customer']]['company']==r['company'],'Precio de cliente de otra empresa.')
  for r in sessions.values():check(r['box'] in boxes and boxes[r['box']]['company']==r['company'] and r['state'] in ('ABIERTA','CERRADA'),'Sesión de caja inválida.')
  for r in docs.values():

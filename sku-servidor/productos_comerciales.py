@@ -1,7 +1,7 @@
 """Captura de productos, pertenencia a canales y reserva central de SKU."""
 import copy,json,re
 from decimal import Decimal,ROUND_HALF_UP
-from comercial import ADMINS,amount,dumps,now
+from comercial import ADMINS,amount,dumps,now,tax_rate
 from requisiciones import Conflict,text
 from ventas import TIP,CAT,SUB,PDV,ALPHABET,resolve,key_from_name,validate as validate_sales
 
@@ -29,13 +29,13 @@ def catalog(cm,company,actor):
  return {'opciones':options,'impuestos':tax_list,'productos':[{'sku':s,'revision':r,**json.loads(p),**taxes.get(s,{}),'canales':channels(json.loads(p)),'precios':{l:prices[(l,s)]['precio'] for l in ('PUBLICO','MINIMO','REMATE','RUTA','DESPACHO') if (l,s) in prices}} for s,r,p in rows],'tipos':TIP,'categorias':CAT,'subcategorias':SUB,'modulos':PDV}
 
 def save_product(cm,data,actor):
- cm.admin(actor);company=data.get('empresa');cm.company(company,actor,True);name=text(data.get('nombre',''),300);unit=text(data.get('unidad','SELECCIONADA' if data.get('unidadId') else ''),100);selected=data.get('canales',[]);sku=str(data.get('sku','')).strip().upper();original=data.get('skuOriginal');rate=amount(data.get('iva','0'))
+ cm.admin(actor);company=data.get('empresa');cm.company(company,actor,True);name=text(data.get('nombre',''),300);unit=text(data.get('unidad','SELECCIONADA' if data.get('unidadId') else ''),100);selected=data.get('canales',[]);sku=str(data.get('sku','')).strip().upper();original=data.get('skuOriginal');rate=tax_rate('0' if data.get('impuestoId') else data.get('iva','0'))
  tax_id=data.get('impuestoId')
  if tax_id:
   from impuestos import selected as selected_tax
-  with cm.store.connect() as db:_,tax_rate=selected_tax(db,company,tax_id)
-  rate=Decimal(tax_rate)
- if not name or not unit or not isinstance(selected,list) or not selected or len(set(selected))!=len(selected) or set(selected)-{'ventasins','expendios'} or rate>100:raise ValueError('Indica descripción, unidad, 0% sin IVA, 8% IEPS o 16% IVA y al menos un canal.')
+  with cm.store.connect() as db:_,selected_rate=selected_tax(db,company,tax_id)
+  rate=Decimal(selected_rate)
+ if not name or not unit or not isinstance(selected,list) or not selected or len(set(selected))!=len(selected) or set(selected)-{'ventasins','expendios'} or not -100<rate<=100:raise ValueError('Indica descripción, unidad, impuesto mayor que -100 y hasta 100 % y al menos un canal.')
  prices={l:optional_price((data.get('precios') or {}).get(l)) for l in ('PUBLICO','MINIMO','REMATE','RUTA','DESPACHO')}
  if 'ventasins' in selected and prices['PUBLICO'] is None:raise ValueError('Institucionales requiere precio público con IVA.')
  if 'expendios' in selected and all(prices[k] is None for k in ('PUBLICO','MINIMO','REMATE','RUTA','DESPACHO')):raise ValueError('TPV requiere al menos un precio configurado.')

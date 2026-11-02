@@ -30,7 +30,16 @@ inventarios, ventas, TPV, CRM, comisiones, CXP/CXC, Calidad y sus archivos,
 usuarios, hashes de contrasenas, 2FA, permisos y configuracion de la aplicacion.
 No contiene sesiones activas. Se debera iniciar sesion despues de recuperar.
 
-Recuperacion por Sistemas (no importar este ZIP como un respaldo de modulo):
+Recuperacion web por Sistemas:
+Entra a Respaldos > Restaurar respaldo general, selecciona este ZIP y revisalo.
+Confirma con tu contrasena actual y el texto RESTAURAR TODO. Se guarda una
+copia previa completa, se cierran las sesiones y se recuperan las credenciales
+del respaldo. Se conserva la ruta de datos/puerto del servidor destino.
+La sincronizacion automatica se desactiva hasta revisar su origen.
+El ZIP debe tener hasta 128 MB y su contenido descomprimido hasta 1 GB.
+
+Recuperacion manual alternativa por Sistemas con servidor detenido
+(no importar este ZIP como un respaldo de modulo):
 1. Verifica los hashes de manifest.json antes de usar los archivos.
 2. Deten ERP-JM-Lite o el proceso servidor. Conserva una copia de la carpeta
    de datos actual completa antes de reemplazar cualquier archivo.

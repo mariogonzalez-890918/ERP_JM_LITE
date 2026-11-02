@@ -1,3 +1,4 @@
+import json
 from plantillas_import import customer_import
 from precios_masivos import import_prices
 """Rutas de la v2, aisladas de los catálogos y requisiciones existentes."""
@@ -60,7 +61,13 @@ class CommercialAPI:
   if action=='documentos':return cm.documents(company,actor,channel,{k:v[0] for k,v in query.items()})
   if action=='documento/excel':return report_xlsx(report_rows({'documentos':[cm.get_document(query.get('id',[''])[0],actor,channel)]})),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   if action=='documento':return cm.get_document(query.get('id',[''])[0],actor,channel)
-  if action=='imprimir':return document_html(cm.get_document(query.get('id',[''])[0],actor,channel),channel,query.get('formato',[''])[0]),'text/html; charset=utf-8'
+  if action=='imprimir':
+   document=cm.get_document(query.get('id',[''])[0],actor,channel)
+   if 'logo' not in document.get('emisor',{}):
+    with cm.store.connect() as db:
+     logo=db.execute('SELECT value FROM app_meta WHERE key=?',('company_logo:'+str(document['empresa']),)).fetchone()
+    document.setdefault('emisor',{})['logo']=json.loads(logo[0]).get('imagen','') if logo else ''
+   return document_html(document,channel,query.get('formato',[''])[0]),'text/html; charset=utf-8'
   raise ValueError('Opción comercial no encontrada.')
  def mutate(self,path,data,actor):
   cm=self.cm;channel=data.get('canal','ventasins');cm.module(actor,channel);action=path.removeprefix('/api/comercial/')

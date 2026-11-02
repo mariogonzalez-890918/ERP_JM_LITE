@@ -33,6 +33,10 @@ class PurchaseAPI:
    if q.get('formato') not in (None,'','a4'):raise ValueError('Compras se imprime solamente en hoja A4.')
    doc=po.get_document(id,actor);move=next((m for m in doc['movimientos'] if m['id']==q.get('movimiento')),None)
    if q.get('movimiento') and move is None:raise ValueError('Movimiento no disponible en este pedido.')
+   if 'logo' not in doc['emisor']:
+    import json
+    with po.store.connect() as db:logo=db.execute('SELECT value FROM app_meta WHERE key=?',('company_logo:'+str(doc['empresa']),)).fetchone()
+    doc['emisor']['logo']=json.loads(logo[0]).get('imagen','') if logo else ''
    return order_pdf(doc,move),'application/pdf'
   if action in ('pedidos','reportes'):return po.orders(actor,company,q)
   if action=='reportes/excel':return purchase_report_xlsx(po.orders(actor,company,q)),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'

@@ -1,7 +1,7 @@
 """Importación transaccional del layout SUGERIDO; precios finales y SKU históricos."""
 import base64,io,json,re,zipfile,xml.etree.ElementTree as ET
 from ventas import read_master,norm,N,NS
-from comercial import ADMINS,amount,dumps,now
+from comercial import ADMINS,amount,dumps,now,tax_rate
 from productos_comerciales import optional_price
 
 def parse_master(content):
@@ -28,9 +28,9 @@ def parse_master(content):
    sku=norm(row.get('A'));n=row['fila'];name=row['H'].strip()
    if not re.fullmatch('[A-Z0-9]{14}',sku) or sku in seen:raise ValueError(f'Fila {n}: SKU de A inválido o repetido. Corrige el maestro; no se regeneran SKU validados.')
    seen.add(sku);cell=cells.get('N'+str(n));rate_value=str(row.get('N','')).strip();is_percent='%' in rate_value or cell is not None and int(cell.get('s','0')) in percent
-   rate=amount(rate_value.replace('%','').strip()) if rate_value.upper() not in ('','NULL','N/A','NA') else None
+   rate=tax_rate(rate_value.replace('%','').strip()) if rate_value.upper() not in ('','NULL','N/A','NA') else None
    if rate is not None and is_percent and '%' not in rate_value:rate*=100
-   if rate is not None and rate not in (0,8,16):raise ValueError(f'Fila {n}: impuesto inválido, se permite 0%, 8% o 16%.')
+   if rate is not None and not -100<rate<=100:raise ValueError(f'Fila {n}: impuesto inválido, debe ser mayor que -100 y hasta 100 %. Retenciones negativas.')
    prices={key:optional_price(row.get(col,'')) for key,col in [('PUBLICO','I'),('MINIMO' if 'MINIMO' in norm(headers.get('J','')) else 'RUTA','J'),('REMATE' if 'REMATE' in norm(headers.get('K','')) else 'DESPACHO','K')]}
    channel=norm(row.get('W',''));channel='EXPENDIOS' if channel=='TPV' else channel
    if channel and channel not in ('INSTITUCIONALES','EXPENDIOS','AMBOS'):raise ValueError(f'Fila {n}: CANAL en W debe ser INSTITUCIONALES, TPV o AMBOS.')

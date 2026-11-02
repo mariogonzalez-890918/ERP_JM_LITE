@@ -22,11 +22,17 @@ def amount(v,positive=False):
  except (decimal.InvalidOperation,TypeError,ValueError):raise ValueError('Cantidad o importe inválido; máximo 999999999 y seis decimales.')
 def money(v):return format(D(v).quantize(CENT,rounding=decimal.ROUND_HALF_UP),'f')
 def fingerprint(data):return hashlib.sha256(json.dumps(data,sort_keys=True,ensure_ascii=False,allow_nan=False).encode()).hexdigest()
-def tax_name(rate):return 'PENDIENTE' if rate is None else 'IEPS' if D(str(rate))==8 else 'IVA' if D(str(rate))==16 else 'SIN IVA' if D(str(rate))==0 else 'IMPUESTO'
+def tax_rate(value):
+ try:rate=D(str(value))
+ except decimal.InvalidOperation:raise ValueError('Tasa de impuesto inválida.')
+ if isinstance(value,bool) or not rate.is_finite() or not -100<=rate<=100 or rate.as_tuple().exponent < -6:raise ValueError('Usa una tasa entre -100 y 100; las retenciones son negativas.')
+ return rate
+
+def tax_name(rate):return 'PENDIENTE' if rate is None else 'RETENCIÓN' if D(str(rate))<0 else 'IEPS' if D(str(rate))==8 else 'IVA' if D(str(rate))==16 else 'SIN IVA' if D(str(rate))==0 else 'IMPUESTO'
 
 def tax_line(quantity,price,rate,discount='0'):
- q=amount(quantity,True);p=amount(price);r=amount(rate);d=amount(discount)
- if r>100 or d>100:raise ValueError('Impuesto permitido: 0% sin IVA, 8% IEPS o 16% IVA. Descuento de 0 a 100 %.')
+ q=amount(quantity,True);p=amount(price);r=tax_rate(rate);d=amount(discount)
+ if r==-100 or d>100:raise ValueError('Una venta con precio final no puede desglosar una retención del 100 %. Descuento de 0 a 100 %.')
  gross=(q*p*(1-d/100)).quantize(CENT,rounding=decimal.ROUND_HALF_UP)
  net=(gross/(1+r/100)).quantize(CENT,rounding=decimal.ROUND_HALF_UP)
  return {'cantidad':format(q,'f'),'precio':format(p,'f'),'iva':format(r,'f'),'descuento':format(d,'f'),'base':money(net),'impuesto':money(gross-net),'total':money(gross),'incluyeIva':r==16,'incluyeImpuestos':True,'tipoImpuesto':tax_name(r)}
@@ -99,7 +105,7 @@ class CommercialStore:
    companies=[{'id':id,'revision':rev,**json.loads(p)} for id,rev,p in db.execute('SELECT id,revision,payload FROM cm_companies ORDER BY id') if actor['role'] in ADMINS or id in access['empresas']]
    revision=db.execute('SELECT revision FROM cm_revision WHERE id=1').fetchone()[0]
   return {'empresas':companies,'acceso':access,'sucursales':list(BRANCHES),'listas':{k:v for k,v in LISTS.items() if k not in ('RUTA','DESPACHO')},'iva':['0','8','16'],'revision':revision,'puedeConfigurar':actor['role'] in ADMINS,'puedeCancelarExpendios':actor['role'] in ADMINS,'puedeGestionarPlantillas':actor['role'] in ADMINS|{'gerente'},'puedeAutorizarCancelacionInstitucional':actor['role'] in ADMINS|{'gerente'},'soloCaptura':actor['role']=='ventaspasteleria','puedeDesbloquear':actor['role'] in {'ventasins','gerente','auxti','superadmin'},'puedeOperar':actor['role']=='ventaspasteleria' or actor['role'] in ADMINS or actor['role']==channel or channel+'.'+('caja' if channel=='expendios' else 'pedidos') in access['acciones'],'puedeImportar':actor['role'] in ADMINS or 'maestro' in access['acciones']}
- def save_company(self,data,actor,remove=False):
+ def save_company(self,data,actor,remove=False,allow_empty=False):
   self.admin(actor);id=data.get('id');rev=data.get('revision',0)
   with self.store.connect() as db:
    db.execute('BEGIN IMMEDIATE');old=db.execute('SELECT revision,payload FROM cm_companies WHERE id=?',(id,)).fetchone() if id else None
@@ -112,8 +118,11 @@ class CommercialStore:
     value=json.loads(old[1]);value.update({'activa':False,'eliminada':True})
    else:
     name=text(data.get('nombre',''),200);branches=data.get('sucursales',[])
-    if not name or not isinstance(branches,list) or not branches or any(b not in BRANCHES for b in branches) or len(set(branches))!=len(branches):raise ValueError('Indica nombre y al menos una de las sucursales configuradas.')
+    if not name or not isinstance(branches,list) or not branches and not allow_empty or any(b not in BRANCHES for b in branches) or len(set(branches))!=len(branches):raise ValueError('Indica nombre y las sucursales configuradas para esta razón social.')
     value={'nombre':name,'rfc':text(data.get('rfc',''),30),'domicilio':text(data.get('domicilio',''),700),'contacto':text(data.get('contacto',''),200),'sucursales':branches,'activa':data.get('activa',True) is True,'eliminada':False}
+    principal=data.get('sucursalPrincipal',json.loads(old[1]).get('sucursalPrincipal','') if old else '')
+    if principal and principal not in branches:raise ValueError('La sucursal principal debe pertenecer a esta razón social.')
+    value['sucursalPrincipal']=principal
     if old:
      for branch,payload in db.execute('SELECT branch,payload FROM cm_boxes WHERE company=?',(id,)):
       if branch not in branches and json.loads(payload).get('activa'):raise ValueError('Reasigna primero las cajas activas de la sucursal que deseas desvincular.')
@@ -154,6 +163,7 @@ class CommercialStore:
      boxes=db.execute('SELECT payload FROM cm_boxes WHERE company=? AND branch=?',(id,branch)).fetchall()
      if any(json.loads(p).get('activa') for p, in boxes):raise ValueError('Reasigna o desactiva las cajas de esta razón social antes de desvincular la sucursal.')
     value['sucursales']=[b for b in BRANCHES if (b in value['sucursales'] and b!=branch) or b==branch and after]
+    if value.get('sucursalPrincipal') not in value['sucursales']:value['sucursalPrincipal']=''
     db.execute('UPDATE cm_companies SET revision=revision+1,payload=? WHERE id=?',(dumps(value),id));self.audit(db,actor,id,'razon_social_asignada_a_sucursal',{'sucursal':branch,'vinculada':after})
   return {'ok':True}
  def access_list(self,actor):
@@ -392,6 +402,8 @@ class CommercialStore:
 
  def prepare(self,db,data,actor,channel,company,box=None):
   issuer=self.company(company,actor,True,db);branch=box['sucursal'] if box else data.get('sucursal');self.branch(issuer,branch,actor)
+  logo=db.execute('SELECT value FROM app_meta WHERE key=?',('company_logo:'+str(company),)).fetchone()
+  issuer['logo']=json.loads(logo[0]).get('imagen','') if logo else ''
   customer=self.customer(db,data.get('cliente'),company,actor,channel);lines=data.get('partidas');listing=box['lista'] if box else 'PUBLICO'
   if not isinstance(lines,list) or not 1<=len(lines)<=200:raise ValueError('Agrega de 1 a 200 partidas.')
   result=[]
@@ -408,7 +420,7 @@ class CommercialStore:
    if not price:price=db.execute('SELECT payload,revision FROM cm_prices WHERE company=? AND list=? AND sku=? AND customer=?',(company,listing,sku,'')).fetchone()
    if not price:raise ValueError('El SKU no tiene precio en la lista de esta razón social: '+sku)
    price_value=json.loads(price[0]);unit_price=line.get('precio',price_value['precio']) if channel=='ventasins' and actor['role']!='ventaspasteleria' else price_value['precio']
-   if channel=='expendios' and (line.get('precioVisto') is not None and amount(line['precioVisto'])!=amount(unit_price) or line.get('ivaVisto') is not None and amount(line['ivaVisto'])!=amount(product['iva'])):raise Conflict('Cambió el precio o IVA de '+sku+'. Actualiza los productos y revisa el total antes de cobrar.')
+   if channel=='expendios' and (line.get('precioVisto') is not None and amount(line['precioVisto'])!=amount(unit_price) or line.get('ivaVisto') is not None and tax_rate(line['ivaVisto'])!=tax_rate(product['iva'])):raise Conflict('Cambió el precio o impuesto de '+sku+'. Actualiza los productos y revisa el total antes de cobrar.')
    value=tax_line(line.get('cantidad'),unit_price,product['iva'],line.get('descuento','0') if channel=='ventasins' and actor['role']!='ventaspasteleria' else '0')
    result.append({'sku':sku,'nombre':product['nombre'],'unidad':product['unidad'],'nota':text(line.get('nota',''),500),'revisionProducto':row[1],'revisionPrecio':price[1],**value,**({'impuestoId':tax['impuestoId'],'tipoImpuesto':tax['nombreImpuesto']} if tax else {})})
   return {'empresa':company,'emisor':issuer,'sucursal':branch,'cliente':customer,'lista':listing,'partidas':result,'observaciones':text(data.get('observaciones',''),10000),'condiciones':text(data.get('condiciones',''),2000),'base':money(sum(D(r['base']) for r in result)),'impuesto':money(sum(D(r['impuesto']) for r in result)),'total':money(sum(D(r['total']) for r in result))}

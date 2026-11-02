@@ -91,6 +91,8 @@ def protect(old,new):
  b['reservados']=sorted(reserved)
 class Store:
  def __init__(self,directory,initial_admin=None):
+  from maintenance import MaintenanceGate
+  self.maintenance=MaintenanceGate()
   self._transactions=threading.local()
   self.require_activation=False
   self.directory=pathlib.Path(directory);self.directory.mkdir(parents=True,exist_ok=True);self.path=self.directory/'sku.sqlite3';self.catalogs=json.loads((ROOT/'catalogos.json').read_text(encoding='utf8'))
@@ -145,6 +147,10 @@ class Store:
   self.security=AccountSecurity(self)
  @contextlib.contextmanager
  def connect(self):
+  with self.maintenance.shared():
+   with self._connect() as db:yield db
+ @contextlib.contextmanager
+ def _connect(self):
   current=getattr(self._transactions,'connection',None)
   if current is not None:
    yield current;return
@@ -280,6 +286,11 @@ def create_handler(store):
  backups=BackupStore(store,validate,reports)
  admin_approvals=AdminApprovals(store,sales,images,backups)
  enterprise=Enterprise(store);quality=QualityLite(store);loads=CatalogLoads(store,purchases,sales,requisitions,reports,commercial.cm,quality);crm=CRMManagement(commercial.cm);finance=Finance(store,commercial.cm,procurement.po)
+ from restauracion_general import GeneralRestore
+ def refresh_after_restore():
+  with store.connect() as db:branches=dict(db.execute('SELECT name,series FROM app_branches ORDER BY name'))
+  BRANCHES.clear();BRANCHES.update(branches);store.taxonomy.reload();procurement.po.cache=None
+ restore_general=GeneralRestore(store,enterprise,refresh_after_restore,commercial.sync)
  class Handler(http.server.BaseHTTPRequestHandler):
   def active(self,actor):
    if not store.require_activation or is_internal_admin(actor):return True
@@ -401,9 +412,10 @@ def create_handler(store):
     except (ValueError,KeyError,TypeError) as e:return self.reply(400,{'error':str(e)})
    if path.startswith('/api/respaldos'):
     try:
-     if path=='/api/respaldos/general':
+     general_previous=re.fullmatch('/api/respaldos/general/previo/([a-f0-9]{32})',path)
+     if path=='/api/respaldos/general' or general_previous:
       from respaldo_general import create
-      with create(store,actor) as (archive,name):
+      with contextlib.nullcontext(restore_general.previous(general_previous[1],actor)) if general_previous else create(store,actor) as (archive,name):
        self.send_response(200);self.send_header('Content-Type','application/zip');self.send_header('Content-Length',str(archive.stat().st_size));self.send_header('Content-Disposition','attachment; filename="'+name+'"');self.send_header('Cache-Control','no-store');self.send_header('X-Content-Type-Options','nosniff');self.end_headers()
        with archive.open('rb') as source:
         while block:=source.read(1024*1024):self.wfile.write(block)
@@ -512,11 +524,21 @@ def create_handler(store):
     if not actor:return self.reply(401,{'error':'La sesión expiró. Inicia sesión de nuevo.'})
     if not self.active(actor):return self.reply(403,{'error':'Instalación pendiente de activación por Sistemas.'})
     if not hmac.compare_digest(self.headers.get('X-CSRF-Token',''),actor['csrf']):return self.reply(403,{'error':'Solicitud sin verificación de sesión.'})
+    if self.path=='/api/respaldos/general/restaurar/revisar' and self.command=='POST':
+     return self.reply(200,restore_general.upload(self.rfile,int(self.headers.get('Content-Length','0')),actor))
+    if self.path=='/api/respaldos/general/restaurar/confirmar' and self.command=='POST':
+     return self.reply(200,restore_general.confirm(self.read_body(),actor))
     if self.path.startswith('/api/seguridad/'):
      data=self.read_body();actions={'/api/seguridad/preparar':store.security.begin,'/api/seguridad/confirmar':store.security.confirm,'/api/seguridad/desactivar':store.security.disable,'/api/seguridad/password':store.security.change_password}
      if self.path not in actions:raise ValueError('Acción de seguridad no disponible.')
      return self.reply(200,actions[self.path](data,actor))
     if self.path.startswith(('/api/empresa/','/api/calidad/','/api/crm/')):
+     if self.path=='/api/empresa/razones-sociales':
+      from company_branches import save_company
+      return self.reply(200,save_company(commercial.cm,self.read_body(),actor))
+     if self.path=='/api/empresa/sucursales':
+      from company_branches import add_branch
+      data=self.read_body();return self.reply(200,add_branch(commercial.cm,data,actor) if 'empresa' in data else save_branch(store,data,actor))
      if self.path=='/api/empresa/catalogos-producto':
       from product_options import save
       return self.reply(200,save(store,self.read_body(),actor))
@@ -605,6 +627,16 @@ def create_handler(store):
  Handler.commercial=commercial
  Handler.inventory=inventory
  Handler.procurement=procurement
+ Handler.restore_general=restore_general
+ # Incluir autenticación y toda la operación en la misma barrera: una petición
+ # anterior no puede escribir con una sesión obsoleta después de restaurar.
+ def gated(method,exclusive=False):
+  def run(self,*args,**kwargs):
+   try:
+    with store.maintenance.exclusive() if exclusive or self.command=='POST' and self.path=='/api/respaldos/general/restaurar/confirmar' else store.maintenance.shared():return method(self,*args,**kwargs)
+   except RequisitionConflict as error:return self.reply(409,{'error':str(error)})
+  return run
+ Handler.do_GET=gated(Handler.do_GET);Handler.mutate=gated(Handler.mutate)
  return Handler
 def main():
  parser=argparse.ArgumentParser();parser.add_argument('--host');parser.add_argument('--port',type=int);parser.add_argument('--data-dir');parser.add_argument('--config',type=pathlib.Path,default=APP_DIR/'config.json');parser.add_argument('--initialize',action='store_true',help='Crear la base vacía y el administrador sin arrancar HTTP');parser.add_argument('--admin-seed',type=pathlib.Path,help='Archivo privado con salt/password_hash, solo para inicialización desatendida');args=parser.parse_args()

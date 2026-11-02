@@ -61,6 +61,8 @@ class SyncService:
   with self.cm.store.connect() as db:db.execute('UPDATE cm_source SET state=? WHERE id=1',(dumps(stamp),))
   threading.Thread(target=self._run,args=(rev,config,stamp),daemon=True).start();return {'ok':True,'enProceso':True}
  def _run(self,revision,config,state):
+  with self.cm.store.maintenance.shared():return self._run_guarded(revision,config,state)
+ def _run_guarded(self,revision,config,state):
   try:
    if config.get('tipo')=='ARCHIVO':
     target=pathlib.Path(config.get('ruta',''))
@@ -102,6 +104,8 @@ class SyncService:
   except Exception:
    with self.cm.store.connect() as db:db.execute('UPDATE cm_source SET state=? WHERE id=1',(dumps({'ok':False,'enProceso':False,'mensaje':'No se pudo completar el maestro inicial. El archivo permanece guardado para reintentar o cargarlo manualmente.'}),))
  def tick(self):
+  with self.cm.store.maintenance.shared():return self._tick_guarded()
+ def _tick_guarded(self):
   with self.cm.store.connect() as db:raw,state=db.execute('SELECT payload,state FROM cm_source WHERE id=1').fetchone()
   config=json.loads(raw);state=json.loads(state)
   if config.get('habilitada') and time.time()-state.get('ultimoIntento',0)>=INTERVAL:self.trigger(self.actor(config['configuradoPor']),True)

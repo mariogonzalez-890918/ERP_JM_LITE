@@ -21,9 +21,11 @@ def number(v,positive=False):
 
 def rate(v):
  if v is None or str(v).strip()=='':return None
- s=str(v).strip().replace('%','').replace(',','.');n=Decimal(s)
- if n in (Decimal('.08'),Decimal('.16')):n*=100
- if not n.is_finite() or not 0<=n<=100:raise ValueError('Impuesto: 0% sin IVA, 8% IEPS o 16% IVA.')
+ s=str(v).strip().replace('%','').replace(',','.')
+ try:n=Decimal(s)
+ except Exception:raise ValueError('Tasa de impuesto inválida.')
+ if n in (Decimal('.08'),Decimal('.16'),Decimal('-.08'),Decimal('-.16')):n*=100
+ if not n.is_finite() or not -100<=n<=100:raise ValueError('Impuesto entre -100 y 100 %. Las retenciones se capturan negativas.')
  return format(n.normalize(),'f')
 
 def delivery_in(quantity,source,target):
@@ -285,6 +287,7 @@ class PurchaseStore:
     default=optional_price(default);price=number(l.get('precio',default));base=qty*price;tax_amount=base*Decimal(tax)/100;due=iso_date(l.get('fechaRequerida') or data.get('fechaEntrega',''))
     prepared.append({'linea':str(len(prepared)+1),'materialId':material['materialId'],'sku':material['sku'],'nombre':material['nombre'],'tipoUnidad':kind,'unidad':material['unidadCompra'] if kind=='COMPRA' else material['unidadEntrega'],'unidadCompra':material['unidadCompra'],'unidadEntrega':material['unidadEntrega'],'factor':format(factor,'f'),'factorEntrega':format(conversion,'f'),'cantidad':format(qty,'f'),'cantidadEntrega':format(qty*conversion,'f'),'precio':format(price,'f'),'impuesto':tax,'tipoImpuesto':configured_tax['nombreImpuesto'] if configured_tax else tax_name(tax),'base':money(base),'importeImpuesto':money(tax_amount),'total':money(base+tax_amount),'fechaRequerida':due,'requisicionId':l.get('requisicionId',''),'requisicionNumero':source_number or '','observaciones':text(l.get('observaciones',''),3000),'recibido':'0','comprado':'0'})
    issuer=self.scope(actor,company,branch,db=db)
+   logo=db.execute('SELECT value FROM app_meta WHERE key=?',('company_logo:'+str(company),)).fetchone();issuer['logo']=json.loads(logo[0]).get('imagen','') if logo else ''
    if not issuer.get('activa') or issuer.get('eliminada'):raise ValueError('La razón social no está activa.')
    value={'empresa':company,'emisor':issuer,'sucursal':branch,'proveedor':{'id':data['proveedor'],'codigo':vendor[0],**json.loads(vendor[1])},'referenciaProveedor':text(data.get('referenciaProveedor',''),300),'fechaPedido':iso_date(data.get('fechaPedido')) or now()[:10],'fechaEntrega':iso_date(data.get('fechaEntrega')),'observaciones':text(data.get('observaciones',''),100000),'condiciones':text(data.get('condiciones',''),20000),'partidas':prepared,'estado':old['estado'] if old else 'BORRADOR','creado':old['creado'] if old else now(),'creador':old['creador'] if old else actor['email'],'actualizado':now(),'folio':old['folio'] if old else self.next_number(db,company,branch,'COTIZACION',id),'huellaEnvio':fingerprint(data)}
    for k in ('base','importeImpuesto','total'):value[k]=money(sum((Decimal(l[k]) for l in prepared),Decimal(0)))

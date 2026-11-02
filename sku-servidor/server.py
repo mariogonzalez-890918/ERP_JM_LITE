@@ -208,21 +208,29 @@ class Store:
    row=db.execute('SELECT u.email,u.name,u.role,s.csrf,a.sucursales,a.almacenes,p.modules,EXISTS(SELECT 1 FROM app_internal_admins i WHERE i.email=u.email) FROM sessions s JOIN users u ON s.email=u.email LEFT JOIN user_requisition_access a ON a.email=u.email LEFT JOIN role_modules p ON p.role=u.role WHERE s.token_hash=? AND s.expires>? AND u.active=1',(hashlib.sha256(token.encode()).hexdigest(),time.time())).fetchone()
   if not row or row[2] not in ROLES:return None
   actor={**dict(zip(('email','name','role','csrf'),row[:4])),'internalAdmin':bool(row[7]),'sucursales':json.loads(row[4] or '[]'),'almacenes':json.loads(row[5] or '[]'),'modulos':list(MODULES) if row[2]=='superadmin' else enabled_modules({'role':row[2],'modulos':json.loads(row[6] or '[]')})}
-  if not is_internal_admin(actor):
-   with self.connect() as db:
-    exists=db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='app_meta'").fetchone();contract=db.execute("SELECT value FROM app_meta WHERE key='module_contract'").fetchone() if exists else None
-   allowed=json.loads(contract[0])['modules'] if contract else [] if getattr(self,'enforce_contract',False) else list(MODULES)
-   actor['modulos']=[m for m in actor['modulos'] if m in allowed]
+  contract=self.module_contract();assigned=actor['modulos'][:]
+  if not is_internal_admin(actor):actor['modulos']=[m for m in assigned if m in contract['modules']]
+  reason='sin_modulos_perfil' if not assigned else 'contrato_pendiente' if not actor['modulos'] and not contract['configurado'] and getattr(self,'enforce_contract',False) else 'sin_modulos_contratados' if not actor['modulos'] else ''
+  actor['acceso']={'motivo':reason,'modulosPerfil':len(assigned),'modulosHabilitados':len(actor['modulos'])}
   return actor
+ def module_contract(self):
+  with self.connect() as db:
+   exists=db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='app_meta'").fetchone();row=db.execute("SELECT value FROM app_meta WHERE key='module_contract'").fetchone() if exists else None
+  return {**(json.loads(row[0]) if row else {'revision':0,'modules':[] if getattr(self,'enforce_contract',False) else list(MODULES)}),'configurado':bool(row)}
  def profiles(self):
   with self.connect() as db:rows=db.execute('SELECT role,modules,revision FROM role_modules ORDER BY rowid').fetchall()
-  return {'perfiles':[{'perfil':role,'nombre':ROLES[role],'modulos':list(MODULES) if role=='superadmin' else json.loads(modules),'revision':revision} for role,modules,revision in rows],'modulos':MODULES}
+  contract=self.module_contract();profiles=[]
+  for role,modules,revision in rows:
+   assigned=list(MODULES) if role=='superadmin' else enabled_modules({'role':role,'modulos':json.loads(modules)})
+   profiles.append({'perfil':role,'nombre':ROLES[role],'modulos':assigned,'efectivos':[m for m in assigned if m in contract['modules']],'pendientesContrato':[m for m in assigned if m not in contract['modules']],'revision':revision})
+  return {'perfiles':profiles,'modulos':MODULES,'contrato':contract}
  def save_profile(self,data,actor):
   if actor['role']!='superadmin':raise PermissionError('Solo el superadministrador puede configurar accesos por perfil.')
   role=data.get('perfil');modules=data.get('modulos');revision=data.get('revision')
   if role not in ROLES or role=='superadmin':raise ValueError('El superadministrador conserva acceso completo.')
   if not isinstance(modules,list) or any(not isinstance(m,str) or m not in MODULES for m in modules) or len(set(modules))!=len(modules) or type(revision) is not int:raise ValueError('Configuración de módulos inválida.')
   if role=='requisicion' and any(m!='requisiciones' for m in modules):raise ValueError('El perfil Requisición solo permite crear y consultar sus propias solicitudes.')
+  if role=='ventaspasteleria' and any(m!='ventasins' for m in modules):raise ValueError('Este perfil de vendedor solo permite Pedidos institucionales y su cartera CRM.')
   with self.connect() as db:
    db.execute('BEGIN IMMEDIATE');old=db.execute('SELECT revision FROM role_modules WHERE role=?',(role,)).fetchone()
    if old[0]!=revision:raise RequisitionConflict('Los accesos cambiaron. Actualiza los perfiles.')

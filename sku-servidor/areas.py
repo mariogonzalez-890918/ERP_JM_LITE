@@ -5,7 +5,7 @@ from requisiciones import Conflict,norm,text
 MANAGERS={'superadmin','auxti','gerente'}
 def default_catalog(defaults):return {'maxId':len(defaults),'areas':[{'id':i+1,'nombre':name} for i,name in enumerate(defaults)],'historicos':[]}
 def validate_catalog(data):
- if not isinstance(data,dict) or set(data)!={'maxId','areas','historicos'} or type(data['maxId']) is not int or data['maxId']<1 or not isinstance(data['areas'],list) or not data['areas'] or not isinstance(data['historicos'],list):raise ValueError('Catálogo de áreas inválido.')
+ if not isinstance(data,dict) or set(data)!={'maxId','areas','historicos'} or type(data['maxId']) is not int or data['maxId']<0 or not isinstance(data['areas'],list) or not isinstance(data['historicos'],list):raise ValueError('Catálogo de áreas inválido.')
  if len(data['areas'])+len(data['historicos'])>20000:raise ValueError('El catálogo de áreas es demasiado grande.')
  ids=set();names={}
  for row in data['areas']:

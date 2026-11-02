@@ -1,5 +1,5 @@
 from fechas import iso_date
-"""Ventas institucionales y Expendios: compañías, precios finales, documentos y caja."""
+"""Ventas institucionales y TPV: compañías, precios finales, documentos y caja."""
 import base64,collections,copy,decimal,hashlib,json,re,uuid
 from permissions import require_module
 from requisiciones import BRANCHES,Conflict,now,text
@@ -9,7 +9,7 @@ CENT=D('.01')
 ADMINS={'superadmin','auxti'}
 SUPERVISORS=ADMINS|{'gerente'}
 CHANNELS={'ventasins','expendios'}
-LISTS={'PUBLICO':'Público institucional','RUTA':'Expendio ruta','DESPACHO':'Expendio despacho'}
+LISTS={'PUBLICO':'Público','MINIMO':'Mínimo','REMATE':'Remate','RUTA':'Lista anterior 1','DESPACHO':'Lista anterior 2'}
 CAPS=['ventasins.clientes','ventasins.pedidos','ventasins.reportes','expendios.clientes','expendios.caja','expendios.reportes','maestro','precios','configurar']
 
 def dumps(v):return json.dumps(v,ensure_ascii=False,allow_nan=False)
@@ -22,11 +22,11 @@ def amount(v,positive=False):
  except (decimal.InvalidOperation,TypeError,ValueError):raise ValueError('Cantidad o importe inválido; máximo 999999999 y seis decimales.')
 def money(v):return format(D(v).quantize(CENT,rounding=decimal.ROUND_HALF_UP),'f')
 def fingerprint(data):return hashlib.sha256(json.dumps(data,sort_keys=True,ensure_ascii=False,allow_nan=False).encode()).hexdigest()
-def tax_name(rate):return 'PENDIENTE' if rate is None else 'IEPS' if D(str(rate))==8 else 'IVA' if D(str(rate))==16 else 'SIN IVA'
+def tax_name(rate):return 'PENDIENTE' if rate is None else 'IEPS' if D(str(rate))==8 else 'IVA' if D(str(rate))==16 else 'SIN IVA' if D(str(rate))==0 else 'IMPUESTO'
 
 def tax_line(quantity,price,rate,discount='0'):
  q=amount(quantity,True);p=amount(price);r=amount(rate);d=amount(discount)
- if r not in (D(0),D(8),D(16)) or d>100:raise ValueError('Impuesto permitido: 0% sin IVA, 8% IEPS o 16% IVA. Descuento de 0 a 100 %.')
+ if r>100 or d>100:raise ValueError('Impuesto permitido: 0% sin IVA, 8% IEPS o 16% IVA. Descuento de 0 a 100 %.')
  gross=(q*p*(1-d/100)).quantize(CENT,rounding=decimal.ROUND_HALF_UP)
  net=(gross/(1+r/100)).quantize(CENT,rounding=decimal.ROUND_HALF_UP)
  return {'cantidad':format(q,'f'),'precio':format(p,'f'),'iva':format(r,'f'),'descuento':format(d,'f'),'base':money(net),'impuesto':money(gross-net),'total':money(gross),'incluyeIva':r==16,'incluyeImpuestos':True,'tipoImpuesto':tax_name(r)}
@@ -35,6 +35,10 @@ class CommercialStore:
  def __init__(self,store):
   self.store=store
   with store.connect() as db:
+   from impuestos import initialize
+   initialize(db)
+   from product_options import initialize as initialize_options
+   initialize_options(db)
    db.executescript('''
     CREATE TABLE IF NOT EXISTS cm_companies(id INTEGER PRIMARY KEY AUTOINCREMENT,revision INTEGER NOT NULL,payload TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS cm_access(email TEXT PRIMARY KEY,payload TEXT NOT NULL,revision INTEGER NOT NULL);
@@ -94,7 +98,7 @@ class CommercialStore:
   with self.store.connect() as db:
    companies=[{'id':id,'revision':rev,**json.loads(p)} for id,rev,p in db.execute('SELECT id,revision,payload FROM cm_companies ORDER BY id') if actor['role'] in ADMINS or id in access['empresas']]
    revision=db.execute('SELECT revision FROM cm_revision WHERE id=1').fetchone()[0]
-  return {'empresas':companies,'acceso':access,'sucursales':list(BRANCHES),'listas':LISTS,'iva':['0','8','16'],'revision':revision,'puedeConfigurar':actor['role'] in ADMINS,'puedeCancelarExpendios':actor['role'] in ADMINS,'puedeGestionarPlantillas':actor['role'] in ADMINS|{'gerente'},'puedeAutorizarCancelacionInstitucional':actor['role'] in ADMINS|{'gerente'},'soloCaptura':actor['role']=='ventaspasteleria','puedeDesbloquear':actor['role'] in {'ventasins','gerente','auxti','superadmin'},'puedeOperar':actor['role']=='ventaspasteleria' or actor['role'] in ADMINS or actor['role']==channel or channel+'.'+('caja' if channel=='expendios' else 'pedidos') in access['acciones'],'puedeImportar':actor['role'] in ADMINS or 'maestro' in access['acciones']}
+  return {'empresas':companies,'acceso':access,'sucursales':list(BRANCHES),'listas':{k:v for k,v in LISTS.items() if k not in ('RUTA','DESPACHO')},'iva':['0','8','16'],'revision':revision,'puedeConfigurar':actor['role'] in ADMINS,'puedeCancelarExpendios':actor['role'] in ADMINS,'puedeGestionarPlantillas':actor['role'] in ADMINS|{'gerente'},'puedeAutorizarCancelacionInstitucional':actor['role'] in ADMINS|{'gerente'},'soloCaptura':actor['role']=='ventaspasteleria','puedeDesbloquear':actor['role'] in {'ventasins','gerente','auxti','superadmin'},'puedeOperar':actor['role']=='ventaspasteleria' or actor['role'] in ADMINS or actor['role']==channel or channel+'.'+('caja' if channel=='expendios' else 'pedidos') in access['acciones'],'puedeImportar':actor['role'] in ADMINS or 'maestro' in access['acciones']}
  def save_company(self,data,actor,remove=False):
   self.admin(actor);id=data.get('id');rev=data.get('revision',0)
   with self.store.connect() as db:
@@ -108,7 +112,7 @@ class CommercialStore:
     value=json.loads(old[1]);value.update({'activa':False,'eliminada':True})
    else:
     name=text(data.get('nombre',''),200);branches=data.get('sucursales',[])
-    if not name or not isinstance(branches,list) or not branches or any(b not in BRANCHES for b in branches) or len(set(branches))!=len(branches):raise ValueError('Indica nombre y al menos una de las cuatro sucursales.')
+    if not name or not isinstance(branches,list) or not branches or any(b not in BRANCHES for b in branches) or len(set(branches))!=len(branches):raise ValueError('Indica nombre y al menos una de las sucursales configuradas.')
     value={'nombre':name,'rfc':text(data.get('rfc',''),30),'domicilio':text(data.get('domicilio',''),700),'contacto':text(data.get('contacto',''),200),'sucursales':branches,'activa':data.get('activa',True) is True,'eliminada':False}
     if old:
      for branch,payload in db.execute('SELECT branch,payload FROM cm_boxes WHERE company=?',(id,)):
@@ -138,7 +142,7 @@ class CommercialStore:
   return {'ok':True}
  def save_branch_companies(self,data,actor):
   self.admin(actor);branch=data.get('sucursal');selected=data.get('empresas');revisions=data.get('revisiones',{})
-  if branch not in BRANCHES or not isinstance(selected,list) or any(type(id) is not int for id in selected) or len(set(selected))!=len(selected) or not isinstance(revisions,dict):raise ValueError('Selecciona una de las cuatro sucursales y sus razones sociales.')
+  if branch not in BRANCHES or not isinstance(selected,list) or any(type(id) is not int for id in selected) or len(set(selected))!=len(selected) or not isinstance(revisions,dict):raise ValueError('Selecciona una de las sucursales configuradas y sus razones sociales.')
   with self.store.connect() as db:
    db.execute('BEGIN IMMEDIATE');rows=[(id,rev,json.loads(p)) for id,rev,p in db.execute('SELECT id,revision,payload FROM cm_companies') if not json.loads(p).get('eliminada')]
    if set(selected)-{id for id,_,_ in rows}:raise ValueError('Razón social no disponible.')
@@ -154,7 +158,7 @@ class CommercialStore:
   return {'ok':True}
  def access_list(self,actor):
   self.admin(actor)
-  with self.store.connect() as db:rows=db.execute('SELECT u.email,u.name,u.role,a.payload,a.revision FROM users u LEFT JOIN cm_access a ON a.email=u.email ORDER BY email').fetchall()
+  with self.store.connect() as db:rows=db.execute('SELECT u.email,u.name,u.role,a.payload,a.revision FROM users u LEFT JOIN cm_access a ON a.email=u.email WHERE u.email NOT IN (SELECT email FROM app_internal_admins) ORDER BY u.email').fetchall()
   return {'usuarios':[{'email':r[0],'nombre':r[1],'perfil':r[2],**(json.loads(r[3]) if r[3] else {'empresas':[],'sucursales':[],'cajas':[],'acciones':[]}), 'revision':r[4] or 0} for r in rows],'acciones':CAPS}
  def products(self,company,actor,channel,query='',customer=''):
   self.module(actor,channel);self.company(company,actor)
@@ -166,10 +170,13 @@ class CommercialStore:
   q=query.strip().upper();result=[]
   for sku,p,rev in rows:
    product={'sku':sku,'revision':rev,**json.loads(p)}
+   from impuestos import configured
+   with self.store.connect() as db:tax=configured(db,company,'ventas',sku)
+   if tax:product.update(tax)
    if channel=='ventasins' and not product.get('institucional',True) or channel=='expendios' and not product.get('expendio'):continue
-   if q and q not in (sku+' '+product['nombre']).upper():continue
+   if q and q not in (sku+' '+product['nombre']+' '+product.get('claveAlterna','')).upper():continue
    if not any((key,sku) in pmap for key in LISTS):continue
-   product['precios']={key:pmap[(key,sku)]['precio'] for key in (('PUBLICO',) if channel=='ventasins' else ('RUTA','DESPACHO')) if (key,sku) in pmap};result.append(product)
+   product['precios']={key:pmap[(key,sku)]['precio'] for key in (('PUBLICO','MINIMO','REMATE') if channel=='ventasins' else tuple(LISTS)) if (key,sku) in pmap};result.append(product)
   return {'productos':result}
  def report_definitions(self,company,actor,channel):
   self.module(actor,channel);self.company(company,actor)
@@ -258,7 +265,7 @@ class CommercialStore:
  def templates(self,company,actor):
   self.module(actor,'ventasins');self.company(company,actor)
   with self.store.connect() as db:rows=db.execute('SELECT id,creator,revision,payload FROM cm_templates WHERE company=?',(company,)).fetchall()
-  with self.store.connect() as db:return {'plantillas':[{'id':id,'revision':rev,**json.loads(p)} for id,creator,rev,p in rows if (actor['role'] in ('superadmin','gerente') or creator==actor['email']) and (not json.loads(p).get('cliente') or self.visible_customer(db,json.loads(p)['cliente'],actor))]}
+  with self.store.connect() as db:return {'plantillas':[{'id':id,'revision':rev,**json.loads(p)} for id,creator,rev,p in rows if not json.loads(p).get('cliente') or self.visible_customer(db,json.loads(p)['cliente'],actor)]}
  def save_template(self,data,actor):
   self.module(actor,'ventasins')
   if actor['role'] not in ADMINS|{'gerente'}:raise PermissionError('Solo Gerencia, AUXTI y Superadministrador administran plantillas.')
@@ -317,8 +324,8 @@ class CommercialStore:
   if active and not box['activa']:raise ValueError('Caja inactiva.')
   return box
  def save_box(self,data,actor):
-  self.admin(actor);company=data.get('empresa');co=self.company(company,actor,True);branch=data.get('sucursal');self.branch(co,branch,actor);id=data.get('id');code=text(data.get('codigo',''),24).upper();name=text(data.get('nombre',''),160);listing=data.get('lista','DESPACHO')
-  if not re.fullmatch('[A-Z0-9][A-Z0-9-]{0,23}',code) or not name or listing not in ('RUTA','DESPACHO'):raise ValueError('Código, nombre o lista de caja inválidos.')
+  self.admin(actor);company=data.get('empresa');co=self.company(company,actor,True);branch=data.get('sucursal');self.branch(co,branch,actor);id=data.get('id');code=text(data.get('codigo',''),24).upper();name=text(data.get('nombre',''),160);listing=data.get('lista','PUBLICO')
+  if not re.fullmatch('[A-Z0-9][A-Z0-9-]{0,23}',code) or not name or listing not in LISTS:raise ValueError('Código, nombre o lista de caja inválidos.')
   settings={'mostrarLogo':data.get('mostrarLogo',True) is True,'mostrarSucursal':data.get('mostrarSucursal',True) is True}
   value={'codigo':code,'nombre':name,'sucursal':branch,'lista':listing,'activa':data.get('activa',True) is True,'ticket':settings}
   with self.store.connect() as db:
@@ -392,6 +399,9 @@ class CommercialStore:
    sku=line.get('sku');row=db.execute('SELECT payload,revision FROM cm_products WHERE sku=?',(sku,)).fetchone()
    if not row:raise ValueError('SKU no encontrado: '+str(sku))
    product=json.loads(row[0])
+   from impuestos import configured
+   tax=configured(db,company,'ventas',sku)
+   if tax:product.update(tax)
    if not product.get('activo') or channel=='expendios' and not product.get('expendio') or channel=='ventasins' and not product.get('institucional',True):raise ValueError('Producto no disponible para este canal: '+sku)
    if product.get('iva') is None:raise ValueError('Completa el IVA pendiente del producto '+sku+' antes de venderlo.')
    price=db.execute('SELECT payload,revision FROM cm_prices WHERE company=? AND list=? AND sku=? AND customer=?',(company,listing,sku,customer['id'] if customer and channel=='ventasins' else '')).fetchone()
@@ -400,7 +410,7 @@ class CommercialStore:
    price_value=json.loads(price[0]);unit_price=line.get('precio',price_value['precio']) if channel=='ventasins' and actor['role']!='ventaspasteleria' else price_value['precio']
    if channel=='expendios' and (line.get('precioVisto') is not None and amount(line['precioVisto'])!=amount(unit_price) or line.get('ivaVisto') is not None and amount(line['ivaVisto'])!=amount(product['iva'])):raise Conflict('Cambió el precio o IVA de '+sku+'. Actualiza los productos y revisa el total antes de cobrar.')
    value=tax_line(line.get('cantidad'),unit_price,product['iva'],line.get('descuento','0') if channel=='ventasins' and actor['role']!='ventaspasteleria' else '0')
-   result.append({'sku':sku,'nombre':product['nombre'],'unidad':product['unidad'],'nota':text(line.get('nota',''),500),'revisionProducto':row[1],'revisionPrecio':price[1],**value})
+   result.append({'sku':sku,'nombre':product['nombre'],'unidad':product['unidad'],'nota':text(line.get('nota',''),500),'revisionProducto':row[1],'revisionPrecio':price[1],**value,**({'impuestoId':tax['impuestoId'],'tipoImpuesto':tax['nombreImpuesto']} if tax else {})})
   return {'empresa':company,'emisor':issuer,'sucursal':branch,'cliente':customer,'lista':listing,'partidas':result,'observaciones':text(data.get('observaciones',''),10000),'condiciones':text(data.get('condiciones',''),2000),'base':money(sum(D(r['base']) for r in result)),'impuesto':money(sum(D(r['impuesto']) for r in result)),'total':money(sum(D(r['total']) for r in result))}
  def document(self,db,id,actor,channel):
   self.module(actor,channel);row=db.execute('SELECT company,channel,creator,box,revision,payload FROM cm_documents WHERE id=?',(id,)).fetchone()

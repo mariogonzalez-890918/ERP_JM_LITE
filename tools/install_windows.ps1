@@ -1,11 +1,12 @@
 # Ejecutar desde la distribucion extraida, en PowerShell como administrador.
 [CmdletBinding()]
 param(
-    [ValidateRange(0,65535)][int]$Port = 0,
+    [ValidateSet(8098)][int]$Port = 8098,
     [string]$InstallDir = (Join-Path $env:ProgramFiles 'ERP JM Lite'),
     [string]$DataRoot = (Join-Path $env:ProgramData 'ERP JM Lite'),
     [switch]$OpenFirewall,
-    [string]$AdminSeed
+    [string]$AdminSeed,
+    [string]$ActivationVerifier
 )
 $ErrorActionPreference = 'Stop'
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -29,21 +30,17 @@ New-Item -ItemType Directory -Path $InstallDir,$DataRoot -Force | Out-Null
 & icacls.exe $DataRoot /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'No se pudieron proteger los datos.' }
 $configPath = Join-Path $DataRoot 'config.json'
-$config = @{host='0.0.0.0';port=8080;data_dir='data';log_dir='logs'}
+$config = @{host='0.0.0.0';port=8098;data_dir='data';log_dir='logs';require_activation=$true;require_module_contract=$true}
 if (Test-Path -LiteralPath $configPath) {
     $existing = Get-Content -Raw -LiteralPath $configPath | ConvertFrom-Json
-    foreach ($key in @('host','port','data_dir','log_dir')) { if ($null -ne $existing.$key) { $config[$key] = $existing.$key } }
-}
-if ($Port -eq 0) {
-    $answer = Read-Host "Puerto web del servidor [$($config.port)]"
-    if ($answer) { $parsed = 0; if (-not [int]::TryParse($answer,[ref]$parsed) -or $parsed -lt 1 -or $parsed -gt 65535) { throw 'Puerto invalido.' }; $Port=$parsed } else { $Port=[int]$config.port }
+    foreach ($key in @('data_dir','log_dir')) { if ($null -ne $existing.$key) { $config[$key] = $existing.$key } }
 }
 $config.port=$Port
 $taskName='ERP-JM-Lite'
 $previous = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
 if ($previous) { Stop-ScheduledTask -TaskName $taskName; Start-Sleep -Seconds 2 }
 $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Any,$Port)
-try { $listener.Start() } catch { throw "El puerto $Port esta ocupado. Elige otro y ejecuta de nuevo." } finally { $listener.Stop() }
+try { $listener.Start() } catch { throw "El puerto $Port esta ocupado o no esta disponible. Libera el puerto y vuelve a instalar. No se utilizara otro puerto." } finally { $listener.Stop() }
 $exe = Join-Path $InstallDir 'ERP_JM_Lite.exe'
 Copy-Item -LiteralPath $source -Destination $exe -Force
 $config | ConvertTo-Json | Set-Content -LiteralPath $configPath -Encoding UTF8
@@ -51,6 +48,10 @@ $config | ConvertTo-Json | Set-Content -LiteralPath $configPath -Encoding UTF8
 if ($AdminSeed) { & $exe --config $configPath --initialize --admin-seed $AdminSeed }
 else { & $exe --config $configPath --initialize }
 if ($LASTEXITCODE -ne 0) { throw 'No se pudo inicializar la base. No se registro el inicio automatico.' }
+if ($ActivationVerifier) {
+    $privateData = if ([IO.Path]::IsPathRooted($config.data_dir)) {$config.data_dir} else {Join-Path $DataRoot $config.data_dir}
+    Copy-Item -LiteralPath $ActivationVerifier -Destination (Join-Path $privateData 'activation-verifier.json') -Force
+}
 $action = New-ScheduledTaskAction -Execute $exe -Argument ('--config "'+$configPath+'"') -WorkingDirectory $InstallDir
 $trigger = New-ScheduledTaskTrigger -AtStartup
 $settings = New-ScheduledTaskSettingsSet -RestartCount 5 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -StartWhenAvailable -MultipleInstances IgnoreNew
@@ -58,7 +59,7 @@ $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccou
 Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force | Out-Null
 if ($OpenFirewall) {
     Get-NetFirewallRule -Name 'ERP-JM-Lite-Web' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
-    New-NetFirewallRule -Name 'ERP-JM-Lite-Web' -DisplayName 'ERP JM Lite Web' -Direction Inbound -Action Allow -Protocol TCP -LocalPort $Port -Program $exe -Profile Domain,Private -RemoteAddress LocalSubnet | Out-Null
+    New-NetFirewallRule -Name 'ERP-JM-Lite-Web' -DisplayName 'ERP JM Lite Web' -Direction Inbound -Action Allow -Protocol TCP -LocalPort $Port -Program $exe -Profile Any -RemoteAddress Any | Out-Null
 }
 Start-ScheduledTask -TaskName $taskName
 Start-Sleep -Seconds 3

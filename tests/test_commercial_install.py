@@ -1,5 +1,5 @@
 """Pruebas de instalacion comercial con datos ficticios y procesos aislados."""
-import contextlib,importlib.util,json,os,pathlib,queue,re,secrets,shutil,subprocess,sys,tempfile,threading,time,unittest,urllib.request
+import contextlib,importlib.util,json,os,pathlib,queue,re,secrets,shutil,socket,subprocess,sys,tempfile,threading,time,unittest,urllib.request
 from unittest.mock import patch
 ROOT=pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0,str(ROOT/'sku-servidor'))
@@ -50,5 +50,15 @@ class CommercialInstall(unittest.TestCase):
  def test_unattended_seed_is_not_accepted_for_normal_start(self):
   result=subprocess.run([sys.executable,str(ROOT/'sku-servidor/server.py'),'--admin-seed',str(self.root/'initial-admin.json')],capture_output=True,timeout=15)
   self.assertNotEqual(result.returncode,0);self.assertIn(b'--initialize',result.stderr)
+ def test_default_network_binding_and_busy_port_fail_without_fallback(self):
+  config=self.root/'network-config.json'
+  command=[sys.executable,str(ROOT/'sku-servidor/server.py'),'--config',str(config),'--data-dir',str(self.root/'network-data')]
+  result=subprocess.run(command+['--initialize','--admin-seed',str(self.root/'initial-admin.json')],capture_output=True,timeout=30)
+  self.assertEqual(result.returncode,0,result.stderr)
+  self.assertEqual(json.loads(config.read_text()),{'host':'0.0.0.0','port':8098})
+  with socket.socket() as occupied:
+   occupied.bind(('127.0.0.1',0));occupied.listen()
+   result=subprocess.run(command+['--host','127.0.0.1','--port',str(occupied.getsockname()[1])],capture_output=True,timeout=30)
+  self.assertNotEqual(result.returncode,0);self.assertIn(b'No se utilizara otro puerto',result.stderr)
 
 if __name__=='__main__':unittest.main()

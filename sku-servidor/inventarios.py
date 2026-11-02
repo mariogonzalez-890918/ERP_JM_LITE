@@ -148,6 +148,9 @@ CREATE TRIGGER IF NOT EXISTS inv_ledger_no_delete BEFORE DELETE ON inv_ledger BE
     if since and date<since:continue
     entry=q if q>0 and not initial else Decimal(0);exit=-q if q<0 else Decimal(0);summary=summaries.setdefault(identity,{'sku':identity,'nombre':r['nombre'],'unidad':r['unidad'],'saldoInicial':r['despues'] if initial else r['antes'],'entradas':Decimal(0),'salidas':Decimal(0),**location});summary['entradas']+=entry;summary['salidas']+=exit;summary['saldoFinal']=r['despues']
     if filters.get('tipo') and r['tipo']!=filters['tipo']:continue
+    if filters.get('referencia') and filters['referencia'].casefold() not in str(r.get('referencia','')).casefold():continue
+    if filters.get('usuario') and filters['usuario'].casefold()!=str(r.get('actor','')).casefold():continue
+    if filters.get('q') and filters['q'].casefold() not in ' '.join(str(r.get(k,'')) for k in ('sku','nombre','concepto','observaciones','entrega','recibe')).casefold():continue
     if direction=='ENTRADAS' and entry<=0 or direction=='SALIDAS' and exit<=0:continue
     matched+=1;rows.append({**r,**location,'id':id,'inicial':r['despues'] if initial else '', 'entrada':fmt(entry),'salida':fmt(exit),'saldo':r['despues']})
   if export and matched>limit:raise ValueError('Hay más de 50000 movimientos; acota fechas o SKU antes de exportar.')

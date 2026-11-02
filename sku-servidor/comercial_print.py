@@ -72,6 +72,6 @@ def report_pdf(rows,title="ERP JM Lite · Reporte comercial",subtitle="Documento
  from reportlab.lib.styles import ParagraphStyle
  from reportlab.platypus import SimpleDocTemplate,LongTable,TableStyle,Paragraph,Spacer
  out=io.BytesIO();page=landscape(A4);style=ParagraphStyle('cm',fontName='Helvetica',fontSize=7,leading=9);heading=ParagraphStyle('heading',fontName='Helvetica-Bold',fontSize=16,leading=22)
- cells=[[Paragraph(esc(v),style) for v in row] for row in rows];table=LongTable(cells,repeatRows=1,colWidths=[(page[0]-40)/len(rows[0])]*len(rows[0]))
- table.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#eae1e7')),('ROWBACKGROUNDS',(0,1),(-1,-1),[colors.white,colors.HexColor('#f6f7f8')]),('VALIGN',(0,0),(-1,-1),'TOP'),('BOTTOMPADDING',(0,0),(-1,-1),7),('TOPPADDING',(0,0),(-1,-1),7)]))
+ cells=[[Paragraph(esc(v),style) for v in row] for row in rows];table=LongTable(cells,repeatRows=1,splitInRow=1,colWidths=[(page[0]-40)/len(rows[0])]*len(rows[0]))
+ table.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#e4edf5')),('ROWBACKGROUNDS',(0,1),(-1,-1),[colors.white,colors.HexColor('#f6f7f8')]),('VALIGN',(0,0),(-1,-1),'TOP'),('BOTTOMPADDING',(0,0),(-1,-1),7),('TOPPADDING',(0,0),(-1,-1),7)]))
  SimpleDocTemplate(out,pagesize=page,leftMargin=20,rightMargin=20,topMargin=24,bottomMargin=24).build([Paragraph(html.escape(title),heading),Paragraph(html.escape(subtitle),style),Spacer(1,12),table]);return out.getvalue()

@@ -40,11 +40,11 @@ class CommercialAPI:
     ch=customer_channels(c);label='AMBOS' if len(ch)>1 else 'EXPENDIOS' if ch==['expendios'] else 'INSTITUCIONALES';rows.append([c.get('codigo',''),c['nombre'],label,c.get('rfc',''),c.get('correo',''),c.get('telefono',''),c.get('domicilio',''),c.get('entrega',''),c.get('condiciones',''),'SI' if c.get('activo') else 'NO'])
    return report_xlsx(rows,'CLIENTES'),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   if action=='productos/excel':
-   rows=[['SKU','DESCRIPCION','CANAL','UOM','TIPO IMPUESTO','Tasa %','PRECIO PUBLICO','PRECIO RUTA','PRECIO DESPACHO','ACTIVO']]
+   rows=[['SKU','DESCRIPCION','CANAL','UOM','TIPO IMPUESTO','Tasa %','PRECIO PUBLICO','PRECIO MINIMO','PRECIO REMATE','ACTIVO']]
    products=product_catalog(cm,company,actor)['productos'] if actor['role'] in ('superadmin','auxti') else cm.products(company,actor,channel)['productos']
    for p in products:
     if channel=='ventasins' and not p.get('institucional',True) or channel=='expendios' and not p.get('expendio'):continue
-    ch='AMBOS' if p.get('institucional',True) and p.get('expendio') else 'EXPENDIOS' if p.get('expendio') else 'INSTITUCIONALES';prices=p.get('precios',{});rows.append([p['sku'],p['nombre'],ch,p['unidad'],tax_name(p.get('iva')),p['iva'] if p.get('iva') is not None else 'PENDIENTE',prices.get('PUBLICO',''),prices.get('RUTA',''),prices.get('DESPACHO',''),'SI' if p.get('activo') else 'NO'])
+    ch='AMBOS' if p.get('institucional',True) and p.get('expendio') else 'EXPENDIOS' if p.get('expendio') else 'INSTITUCIONALES';prices=p.get('precios',{});rows.append([p['sku'],p['nombre'],ch,p['unidad'],tax_name(p.get('iva')),p['iva'] if p.get('iva') is not None else 'PENDIENTE',prices.get('PUBLICO',''),prices.get('MINIMO',''),prices.get('REMATE',''),'SI' if p.get('activo') else 'NO'])
    return report_xlsx(rows),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   if action=='clientes':
    result=cm.customers(company,actor,channel)

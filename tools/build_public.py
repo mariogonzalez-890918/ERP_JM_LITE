@@ -10,8 +10,8 @@ No se ha certificado todavia este paquete en toda la matriz Windows.
 1. Extrae TODO el ZIP en una carpeta temporal local.
 2. Abre PowerShell como administrador en esa carpeta y ejecuta:
    powershell -NoProfile -ExecutionPolicy Bypass -File .\\install_windows.ps1 -OpenFirewall
-3. Selecciona el puerto que asignara el servidor y define la clave de
-   mario.gonzalez@jad-ayt.com en la consola (entrada oculta).
+3. El puerto web es 8098. Define la clave de administracion
+   en la consola (entrada oculta).
 4. Abre http://NOMBRE-O-IP-DEL-SERVIDOR:PUERTO desde un navegador moderno.
 
 El paquete incluye la aplicacion, Python/SQLite y sus dependencias nativas
@@ -19,8 +19,15 @@ integrados en el EXE y Microsoft Visual C++ x64 firmado por Microsoft.
 No necesitas instalar Python, Node, Office ni SQLite en los equipos cliente.
 Se instala el programa en Program Files y los datos en ProgramData\\ERP JM Lite.
 La tarea ERP-JM-Lite arranca el servidor al encender Windows.
-El firewall opcional permite solo la subred local en perfiles Privado/Dominio.
-Para otras redes se debe configurar la regla segun el alcance autorizado.
+Para detenerlo, en PowerShell como administrador:
+   Stop-ScheduledTask -TaskName "ERP-JM-Lite"
+Para iniciarlo otra vez:
+   Start-ScheduledTask -TaskName "ERP-JM-Lite"
+Si ejecutaste el EXE directamente, usa Ctrl+C en su consola.
+El servidor escucha en todas las interfaces IPv4, incluidas las VPN.
+El firewall opcional permite TCP 8098 para este EXE en todos los perfiles,
+incluidas redes ZeroTier, Radmin y Hamachi. La VPN debe permitir la conexion.
+Si 8098 esta ocupado, se informa el problema y no se cambia de puerto.
 
 ACTUALIZAR: detener la tarea, respaldar ProgramData\\ERP JM Lite y volver a
 instalar conservando esa carpeta. Nunca se restablece la clave existente.
@@ -45,11 +52,12 @@ def main():
   clean=pathlib.Path(folder);server=clean/'sku-servidor';server.mkdir();(clean/'sku').mkdir()
   for path in (ROOT/'sku-servidor').glob('*.py'):shutil.copy2(path,server/path.name)
   shutil.copy2(ROOT/'sku-servidor/catalogos.json',server/'catalogos.json')
+  shutil.copy2(ROOT/'sku-servidor/sat-catalogos.json.gz',server/'sat-catalogos.json.gz')
   shutil.copytree(ROOT/'sku-servidor/public',server/'public',ignore=shutil.ignore_patterns('logo.png'))
-  shutil.copy2(ROOT/'sku/SKU-JAD-Servidor.spec',clean/'sku/SKU-JAD-Servidor.spec')
+  shutil.copy2(ROOT/'sku/ERP_JM_Lite.spec',clean/'sku/ERP_JM_Lite.spec')
   initializer=runpy.run_path(str(ROOT/'tools/inicializar.py'))
   initializer['create_initials'](server,secrets.token_urlsafe(32));(server/'initial-admin.json').unlink()
-  subprocess.run([sys.executable,'-m','PyInstaller','--noconfirm','sku/SKU-JAD-Servidor.spec','--distpath',str(target),'--workpath',str(clean/'build')],cwd=clean,check=True)
+  subprocess.run([sys.executable,'-m','PyInstaller','--noconfirm','sku/ERP_JM_Lite.spec','--distpath',str(target),'--workpath',str(clean/'build')],cwd=clean,check=True)
  shutil.copy2(args.vc_redist,target/'VC_redist.x64.exe')
  
  for script in ('install_windows.ps1','verify_windows.ps1'):shutil.copy2(ROOT/'tools'/script,target/script)

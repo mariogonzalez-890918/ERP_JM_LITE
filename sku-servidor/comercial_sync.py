@@ -67,7 +67,7 @@ class SyncService:
     if target.suffix.lower()!='.xlsx' or not target.is_absolute():raise ValueError('Ruta de Excel inválida.')
     with target.open('rb') as source:raw=source.read(15*1024*1024+1)
    else:
-    url=validate_url(config['url']);request=urllib.request.Request(url,headers={'User-Agent':'RFQ-SKU-GMP/2.0','Accept':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})
+    url=validate_url(config['url']);request=urllib.request.Request(url,headers={'User-Agent':'RFQ-SKU-JM/2.0','Accept':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})
     with urllib.request.build_opener(Redirect()).open(request,timeout=45) as response:raw=response.read(15*1024*1024+1)
    if len(raw)>15*1024*1024 or not raw.startswith(b'PK'):raise ValueError('La liga no entregó un archivo Excel. Proporciona una descarga autorizada; un iframe o página de acceso no permite sincronizar.')
    actor=self.actor(config['configuradoPor']);result=import_master(self.cm,{'contenido':base64.b64encode(raw).decode(),'empresas':config['empresas'],'archivo':'OneDrive/SUGERIDO.xlsx','_source_revision':revision},actor)

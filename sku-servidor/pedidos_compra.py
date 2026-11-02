@@ -23,8 +23,8 @@ def rate(v):
  if v is None or str(v).strip()=='':return None
  s=str(v).strip().replace('%','').replace(',','.');n=Decimal(s)
  if n in (Decimal('.08'),Decimal('.16')):n*=100
- if n not in (0,8,16):raise ValueError('Impuesto: 0% sin IVA, 8% IEPS o 16% IVA.')
- return str(int(n))
+ if not n.is_finite() or not 0<=n<=100:raise ValueError('Impuesto: 0% sin IVA, 8% IEPS o 16% IVA.')
+ return format(n.normalize(),'f')
 
 def delivery_in(quantity,source,target):
  if unit(source)==unit(target):return quantity
@@ -113,7 +113,7 @@ class PurchaseStore:
  def access_list(self,actor):
   self.scope(actor)
   if actor['role'] not in ADMINS:raise PermissionError('Solo administración.')
-  with self.store.connect() as db:return {'usuarios':[{'email':e,'nombre':n,'perfil':r,**self.access({'email':e},db)} for e,n,r in db.execute('SELECT email,name,role FROM users WHERE active=1 ORDER BY email')]}
+  with self.store.connect() as db:return {'usuarios':[{'email':e,'nombre':n,'perfil':r,**self.access({'email':e},db)} for e,n,r in db.execute('SELECT email,name,role FROM users WHERE active=1 AND email NOT IN (SELECT email FROM app_internal_admins) ORDER BY email')]}
  def vendors(self,company,actor):
   self.scope(actor,company)
   with self.store.connect() as db:return {'proveedores':[{'id':i,'codigo':c,'revision':r,**json.loads(p)} for i,c,r,p in db.execute('SELECT id,code,revision,payload FROM po_vendors WHERE company=? ORDER BY code',(company,))]}
@@ -133,6 +133,15 @@ class PurchaseStore:
   code=old[1] if old else 'PRO'+str(company).zfill(2)+'-'+str(1+max([int(r[0].split('-')[-1]) for r in db.execute('SELECT code FROM po_vendors WHERE company=?',(company,)) if re.fullmatch(r'PRO[0-9]+-[0-9]+',r[0])]+[0])).zfill(6)
   value={'nombre':name,'rfc':rfc,'correo':email(data.get('correo','')),'telefono':text(data.get('telefono',''),100),'contacto':text(data.get('contacto',''),200),'domicilio':text(data.get('domicilio',''),1000),'referencia':text(data.get('referencia',''),300),'condiciones':text(data.get('condiciones',''),20000),'activo':data.get('activo',True) is True}
   db.execute('INSERT INTO po_vendors VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET revision=excluded.revision,payload=excluded.payload',(id,company,code,(old[2] if old else 0)+1,dumps(value)));self.audit(db,actor,'proveedor_guardado',{'id':id,'codigo':code});return {'ok':True,'id':id,'codigo':code}
+ def company_materials(self,actor,company):
+  self.scope(actor,company)
+  from impuestos import configured
+  result=self.materials(actor)
+  with self.store.connect() as db:
+   for product in result['materiales']:
+    tax=configured(db,company,'compras',product['sku'])
+    if tax:product.update({'impuesto':tax['iva'],'nombreImpuesto':tax['nombreImpuesto'],'impuestoId':tax['impuestoId']})
+  return result
  def materials(self,actor):
   self.scope(actor)
   with self.store.connect() as db:
@@ -156,7 +165,7 @@ class PurchaseStore:
   self.cache=(stamp,result);return {'materiales':copy.deepcopy(result)}
  def sequence(self,db,company,branch,kind):
   if kind not in ('COTIZACION','PEDIDO','RECEPCION','COMPRA'):raise ValueError('Tipo de serie inválido.')
-  defaults={'COTIZACION':'SC','PEDIDO':'OC','RECEPCION':'REC','COMPRA':'CMP'};suffix={'EJIDOS':'EJI','SAN PABLO':'SP','CUAUTITLAN':'CUA','EJE 8':'E8'}[branch]
+  defaults={'COTIZACION':'SC','PEDIDO':'OC','RECEPCION':'REC','COMPRA':'CMP'};suffix=BRANCHES[branch].removeprefix('REQ-')
   db.execute('INSERT OR IGNORE INTO po_sequences VALUES(?,?,?,?,1,1)',(company,branch,kind,defaults[kind]+'-'+str(company).zfill(2)+'-'+suffix));db.execute('INSERT OR IGNORE INTO po_series_registry SELECT company,series,branch,kind FROM po_sequences');row=db.execute('SELECT series,next,revision FROM po_sequences WHERE company=? AND branch=? AND kind=?',(company,branch,kind)).fetchone();used=db.execute('SELECT MAX(number) FROM po_numbers WHERE company=? AND series=?',(company,row[0])).fetchone()[0] or 0
   if used>=row[1]:db.execute('UPDATE po_sequences SET next=?,revision=revision+1 WHERE company=? AND branch=? AND kind=?',(used+1,company,branch,kind));row=(row[0],used+1,row[2]+1)
   return {'serie':row[0],'siguiente':row[1],'revision':row[2]}
@@ -268,10 +277,13 @@ class PurchaseStore:
     seen.add(identity);factor=number(material['factor'],True) if material.get('factor') else Decimal(1) if material['unidadCompra']==material['unidadEntrega'] else None
     if factor is None:raise ValueError('Falta equivalencia validada de compra/entrega. Corrígela en costos de Requisiciones.')
     conversion=factor if kind=='COMPRA' else Decimal(1);source_number=self.validate_source(db,{**l,'unidadEntrega':material['unidadEntrega']},branch,actor,conversion,qty,id if old else None);tax=rate(l.get('impuesto',material.get('impuesto')))
+    from impuestos import configured
+    configured_tax=configured(db,company,'compras',material['sku'])
+    if configured_tax:tax=configured_tax['iva']
     if tax is None:raise ValueError('Completa el impuesto del producto; una celda vacía no es impuesto cero.')
     default=material.get('precioCompra') if kind=='COMPRA' else material.get('costoEntrega') or (format(Decimal(material['precioCompra'])/factor,'f') if material.get('precioCompra') else None)
     default=optional_price(default);price=number(l.get('precio',default));base=qty*price;tax_amount=base*Decimal(tax)/100;due=iso_date(l.get('fechaRequerida') or data.get('fechaEntrega',''))
-    prepared.append({'linea':str(len(prepared)+1),'materialId':material['materialId'],'sku':material['sku'],'nombre':material['nombre'],'tipoUnidad':kind,'unidad':material['unidadCompra'] if kind=='COMPRA' else material['unidadEntrega'],'unidadCompra':material['unidadCompra'],'unidadEntrega':material['unidadEntrega'],'factor':format(factor,'f'),'factorEntrega':format(conversion,'f'),'cantidad':format(qty,'f'),'cantidadEntrega':format(qty*conversion,'f'),'precio':format(price,'f'),'impuesto':tax,'tipoImpuesto':tax_name(tax),'base':money(base),'importeImpuesto':money(tax_amount),'total':money(base+tax_amount),'fechaRequerida':due,'requisicionId':l.get('requisicionId',''),'requisicionNumero':source_number or '','observaciones':text(l.get('observaciones',''),3000),'recibido':'0','comprado':'0'})
+    prepared.append({'linea':str(len(prepared)+1),'materialId':material['materialId'],'sku':material['sku'],'nombre':material['nombre'],'tipoUnidad':kind,'unidad':material['unidadCompra'] if kind=='COMPRA' else material['unidadEntrega'],'unidadCompra':material['unidadCompra'],'unidadEntrega':material['unidadEntrega'],'factor':format(factor,'f'),'factorEntrega':format(conversion,'f'),'cantidad':format(qty,'f'),'cantidadEntrega':format(qty*conversion,'f'),'precio':format(price,'f'),'impuesto':tax,'tipoImpuesto':configured_tax['nombreImpuesto'] if configured_tax else tax_name(tax),'base':money(base),'importeImpuesto':money(tax_amount),'total':money(base+tax_amount),'fechaRequerida':due,'requisicionId':l.get('requisicionId',''),'requisicionNumero':source_number or '','observaciones':text(l.get('observaciones',''),3000),'recibido':'0','comprado':'0'})
    issuer=self.scope(actor,company,branch,db=db)
    if not issuer.get('activa') or issuer.get('eliminada'):raise ValueError('La razón social no está activa.')
    value={'empresa':company,'emisor':issuer,'sucursal':branch,'proveedor':{'id':data['proveedor'],'codigo':vendor[0],**json.loads(vendor[1])},'referenciaProveedor':text(data.get('referenciaProveedor',''),300),'fechaPedido':iso_date(data.get('fechaPedido')) or now()[:10],'fechaEntrega':iso_date(data.get('fechaEntrega')),'observaciones':text(data.get('observaciones',''),100000),'condiciones':text(data.get('condiciones',''),20000),'partidas':prepared,'estado':old['estado'] if old else 'BORRADOR','creado':old['creado'] if old else now(),'creador':old['creador'] if old else actor['email'],'actualizado':now(),'folio':old['folio'] if old else self.next_number(db,company,branch,'COTIZACION',id),'huellaEnvio':fingerprint(data)}
@@ -353,7 +365,7 @@ class PurchaseStore:
   tables={}
   for name in TABLES:
    columns=[r[1] for r in db.execute('PRAGMA table_info('+name+')')];tables[name]={'columnas':columns,'filas':[list(r) for r in db.execute('SELECT * FROM '+name)]}
-  content={'formato':'GMP_ERP_COMPRAS_3','tablas':tables};return {**content,'checksum':fingerprint(content)}
+  content={'formato':'JM_ERP_COMPRAS_3','tablas':tables};return {**content,'checksum':fingerprint(content)}
  def restore(self,data,actor):
   self.scope(actor)
   if actor['role']!='superadmin':raise PermissionError('Solo Sistemas puede restaurar datos de Compras.')
@@ -361,7 +373,7 @@ class PurchaseStore:
   if apply:
    with self.store.connect() as guard:
     if guard.execute("SELECT 1 FROM sqlite_master WHERE name='inv_ledger'").fetchone() and guard.execute("SELECT 1 FROM inv_ledger WHERE json_extract(payload,'$.tipo')='RECEPCION_COMPRA' LIMIT 1").fetchone():raise Conflict('Hay recepciones integradas al inventario. Recupera una copia completa de data; restaurar solo Compras desajustaría las existencias.')
-  if not isinstance(payload,dict) or payload.get('formato')!='GMP_ERP_COMPRAS_3' or payload.get('checksum')!=fingerprint({k:v for k,v in payload.items() if k!='checksum'}) or set(payload.get('tablas',{}))!=set(TABLES):raise ValueError('Respaldo de Compras inválido o dañado.')
+  if not isinstance(payload,dict) or payload.get('formato')!='JM_ERP_COMPRAS_3' or payload.get('checksum')!=fingerprint({k:v for k,v in payload.items() if k!='checksum'}) or set(payload.get('tablas',{}))!=set(TABLES):raise ValueError('Respaldo de Compras inválido o dañado.')
   with self.store.connect() as db:
    db.execute('BEGIN IMMEDIATE');current=self.backup(actor,db)
    if db.execute("SELECT 1 FROM po_mail WHERE state='ENVIANDO'").fetchone():raise ValueError('Hay un correo en proceso. Espera antes de restaurar.')

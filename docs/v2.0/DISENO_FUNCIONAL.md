@@ -6,7 +6,7 @@ La ampliación [multirrazón, clientes, IVA, folios y cancelaciones](MULTIRAZON_
 
 ## 1. Integración y vocabulario
 
-El acceso seguirá siendo el de ERP JM Lite. Tras iniciar sesión aparecerán solo aplicaciones autorizadas. Se mantienen **SKU Compras**, **SKU Ventas**, **Requisiciones** y sus reportes; se agregan **VentasIns** y **Expendios**. No se crea otra aplicación ni otro ejecutable comercial independiente.
+El acceso seguirá siendo el de ERP JM Lite. Tras iniciar sesión aparecerán solo aplicaciones autorizadas. Se mantienen **SKU Compras**, **SKU Ventas**, **Requisiciones** y sus reportes; se agregan **VentasIns** y **TPV**. No se crea otra aplicación ni otro ejecutable comercial independiente.
 
 Se distinguen cuatro conceptos que el término “machote” podría mezclar:
 
@@ -15,7 +15,7 @@ Se distinguen cuatro conceptos que el término “machote” podría mezclar:
 | Maestro de productos | Archivo para alta/actualización controlada de atributos comerciales de productos vinculados al SKU existente. |
 | Plantilla de presupuesto | Conjunto reutilizable de productos, secciones, notas y condiciones que inicia un presupuesto. |
 | Formato de impresión | Diseño del documento de presupuesto/pedido o del ticket; no altera productos ni precios. |
-| Layout de Expendios | Asignación de productos/categorías a sucursal/caja y su orden visual. No importa cobros como si fueran ventas reales. |
+| Layout de TPV | Asignación de productos/categorías a sucursal/caja y su orden visual. No importa cobros como si fueran ventas reales. |
 
 **Módulo ID PDV A01–A22** sigue siendo la clasificación de productos existente. No identifica una sucursal, caja, usuario o sesión. Las cajas tendrán identificadores propios.
 
@@ -31,17 +31,17 @@ Selector de aplicaciones ERP JM Lite
 │  ├─ Productos → Productos · Listas de precios · Importar maestro
 │  ├─ Informes → Dashboard · Ventas y presupuestos
 │  └─ Configuración → Plantillas de presupuesto · Series y folio inicial · Condiciones
-├─ Expendios
+├─ TPV
 │  ├─ Dashboard → Cajas asignadas · Abrir / continuar caja
-│  ├─ Punto de Venta → Pantalla de caja [dentro de Expendios]
+│  ├─ Punto de Venta → Pantalla de caja [dentro de TPV]
 │  ├─ Pedidos → Tickets · Sesiones · Clientes · Solicitudes de cancelación
-│  ├─ Productos → Catálogo del expendio · Listas de precios · Cargar layout
+│  ├─ Productos → Catálogo del TPV · Listas de precios · Cargar layout
 │  ├─ Informes → Ventas · Detalle de ventas · Cierres
 │  └─ Configuración → Puntos de venta · Pagos · Recibos · Series
 └─ Administración → Usuarios · Accesos por perfil · Razones sociales [nuevo] · Respaldos
 ```
 
-La organización de Expendios adapta los menús comunes de TPV 14 y su dashboard [O4–O6](FUENTES.md). **Punto de Venta no será una aplicación separada fuera de Expendios.** “Importar maestro”, “Cargar layout”, la entrada explícita a caja y el dashboard comercial son adaptaciones GMP. Equipos de ventas, variantes, facturación y otros menús de Odoo no se mostrarán como funcionalidades disponibles sin implementación y autorización de alcance.
+La organización de TPV adapta los menús comunes de TPV 14 y su dashboard [O4–O6](FUENTES.md). **Punto de Venta no será una aplicación separada fuera de TPV.** “Importar maestro”, “Cargar layout”, la entrada explícita a caja y el dashboard comercial son adaptaciones JM. Equipos de ventas, variantes, facturación y otros menús de Odoo no se mostrarán como funcionalidades disponibles sin implementación y autorización de alcance.
 
 ### Composición visual
 
@@ -53,29 +53,29 @@ La organización de Expendios adapta los menús comunes de TPV 14 y su dashboard
 
 ## 3. Perfiles y accesos
 
-Se agregan perfiles **VentasIns** (`ventasins`) y **Expendios** (`expendios`). El perfil actual **Ventas** (`ventas`) conserva sus funciones de SKU; no se renombra ni se convierte silenciosamente en vendedor comercial.
+Se agregan perfiles **VentasIns** (`ventasins`) y **TPV** (`expendios`). El perfil actual **Ventas** (`ventas`) conserva sus funciones de SKU; no se renombra ni se convierte silenciosamente en vendedor comercial.
 
 En **Accesos por perfil**, Superadministrador controlará dos niveles:
 
-1. Visibilidad/consulta de **VentasIns** y **Expendios / Punto de Venta**.
+1. Visibilidad/consulta de **VentasIns** y **TPV / Punto de Venta**.
 2. Acciones: presupuestar, confirmar pedidos, operar caja, consultar reportes, importar maestros, administrar listas/precios y autorizar excepciones.
 
-Ver Expendios no concede abrir caja, cobrar, ver costos ni administrar. Desmarcar el módulo revoca también el acceso por URL/API, exportaciones y reimpresiones. Las acciones quedan inactivas si no se permite consultar su módulo.
+Ver TPV no concede abrir caja, cobrar, ver costos ni administrar. Desmarcar el módulo revoca también el acceso por URL/API, exportaciones y reimpresiones. Las acciones quedan inactivas si no se permite consultar su módulo.
 
 | Perfil | Operación propuesta si Sistemas habilita el módulo | Alcance y límites |
 | --- | --- | --- |
 | VentasIns | Clientes asignados, presupuestos, pedidos e impresión comercial. | Sucursales/clientes asignados; documentos propios por defecto. Sin administración de precios, costos, caja ni respaldos. |
-| Expendios | Abrir/continuar caja asignada, cobrar, cerrar sesión propia e imprimir tickets. | Sucursal/caja/sesión asignadas. Sin modificar precios base, importar maestros o administrar perfiles. |
+| TPV | Abrir/continuar caja asignada, cobrar, cerrar sesión propia e imprimir tickets. | Sucursal/caja/sesión asignadas. Sin modificar precios base, importar maestros o administrar perfiles. |
 | Superadministrador | Administración y revisión global. | Control de accesos; habilitación por sucursal y caja; auditoría. |
 | AUXTI | Soporte y configuración comercial autorizada. | Conserva las restricciones actuales de bajas/restauración y no cambia accesos por perfil ni se asigna Superadministrador. |
-| Gerente | Dashboard y supervisión comercial, excepciones y cierres autorizados. | Solo módulos y razones sociales habilitados; respetar sucursales. **No cancela Expendios**; mantiene sus autorizaciones de requisiciones. |
+| Gerente | Dashboard y supervisión comercial, excepciones y cierres autorizados. | Solo módulos y razones sociales habilitados; respetar sucursales. **No cancela TPV**; mantiene sus autorizaciones de requisiciones. |
 | Ventas, Compras, Alta, Visualizador, Almacenista, Requisición | Solo consulta comercial si se habilita expresamente; operación requiere permiso específico. | Ningún acceso comercial nuevo por pertenecer a un perfil actual. Requisición mantiene su aislamiento y la prohibición de ver costos. |
 
 Los valores anteriores son **defaults propuestos**, no altas de cuentas. Los módulos comerciales empiezan deshabilitados para perfiles actuales salvo Superadministrador. En Usuarios se asignan razones sociales, sucursales, cajas y, para VentasIns, cartera/equipo; no basta el checkbox del módulo. Un usuario sin alcance recibe una pantalla de asignación pendiente, nunca acceso a todas las sucursales.
 
 ## 4. Presupuestos y pedidos
 
-Las plantillas reutilizables siguen el concepto de Odoo 14 [O2](FUENTES.md), con condiciones GMP propias.
+Las plantillas reutilizables siguen el concepto de Odoo 14 [O2](FUENTES.md), con condiciones JM propias.
 
 ```mermaid
 flowchart LR
@@ -92,11 +92,11 @@ El presupuesto registra razón social emisora, cliente, sucursal, vendedor, vige
 
 Estados propuestos de presupuesto: BORRADOR, ENTREGADO, ACEPTADO, VENCIDO, CANCELADO. Pedido: CONFIRMADO, ENTREGA_PARCIAL, ENTREGADO, CANCELADO. Pago es un estado independiente: PENDIENTE, PARCIAL, PAGADO. Una entrega o aceptación no demuestra cobro. Cambios después de confirmar crean revisión o solicitud de autorización; conservan fecha original, folio e historial.
 
-Un pedido cobrado en Expendios se vincula al ticket y al saldo pendiente. No se vuelve a sumar como una venta distinta por pasar de presupuesto a pedido y luego a ticket. Anticipos y reembolsos deben referenciar el documento de origen.
+Un pedido cobrado en TPV se vincula al ticket y al saldo pendiente. No se vuelve a sumar como una venta distinta por pasar de presupuesto a pedido y luego a ticket. Anticipos y reembolsos deben referenciar el documento de origen.
 
 ## 5. Precios
 
-Odoo 14 proporciona listas y reglas de precios por segmentos/clientes [O3](FUENTES.md). Para GMP se propone un motor compartido por VentasIns y Expendios:
+Odoo 14 proporciona listas y reglas de precios por segmentos/clientes [O3](FUENTES.md). Para JM se propone un motor compartido por VentasIns y TPV:
 
 1. Validar que la lista pertenezca a la razón social activa y esté vigente y permitida para canal y sucursal/caja.
 2. Resolver lista explícita autorizada; si no, lista del cliente permitida; después lista predeterminada de la sucursal/canal. Si falta precio válido, bloquear confirmación/cobro y mostrar el motivo.
@@ -104,9 +104,9 @@ Odoo 14 proporciona listas y reglas de precios por segmentos/clientes [O3](FUENT
 4. Mostrar si el precio incluye IVA de 0 %, 8 % o 16 % y calcular todo en el servidor con decimales. La unidad de venta no se infiere de la unidad de compra ni de UM_ENTREGA de requisiciones.
 5. Guardar en cada línea precio, moneda, unidad, impuestos, descuento, lista y revisión aplicadas. Cambiar una lista mañana no cambia un pedido, cobro o ticket histórico.
 
-VentasIns y Expendios seleccionan solo listas asignadas. Cambios manuales de precio, descuentos fuera de límite o cambio de lista restringida necesitan permiso/autorización; ningún precio enviado por el navegador se acepta sin validar. Tarifas cero requieren una regla explícita autorizada, no ausencia de dato. Primera etapa: precios fijos, vigencia y tramos de cantidad; fórmulas complejas y promociones quedan para un alcance posterior.
+VentasIns y TPV seleccionan solo listas asignadas. Cambios manuales de precio, descuentos fuera de límite o cambio de lista restringida necesitan permiso/autorización; ningún precio enviado por el navegador se acepta sin validar. Tarifas cero requieren una regla explícita autorizada, no ausencia de dato. Primera etapa: precios fijos, vigencia y tramos de cantidad; fórmulas complejas y promociones quedan para un alcance posterior.
 
-## 6. Expendios y caja
+## 6. TPV y caja
 
 La pantalla de entrada muestra tarjetas de las cajas asignadas con estado Cerrada, Abierta o Cierre pendiente, adaptando el patrón de dashboard 14 [O5](FUENTES.md).
 
@@ -122,7 +122,7 @@ flowchart LR
 
 La confirmación de pago guarda venta, líneas, pagos y folio de forma atómica. Reintentar por doble clic o pérdida de respuesta devuelve el mismo resultado. La impresión sucede después: un fallo de impresora no cancela un cobro ni crea otro. Reimprimir conserva folio e importes y registra que es copia [O8](FUENTES.md).
 
-Primera etapa propuesta: efectivo y registro manual de medios autorizados; registrar tarjeta/transferencia no procesa una transacción bancaria. Devoluciones, retiros y diferencias de caja requieren capacidad y autorización. Las solicitudes de cancelación de Expendios tienen folio y **solo AUXTI o Superadministrador pueden autorizarlas**, excluyendo Gerencia; las ventas cobradas no se borran, se corrigen con movimientos vinculados. No se cierra una caja ajena mediante un identificador conocido.
+Primera etapa propuesta: efectivo y registro manual de medios autorizados; registrar tarjeta/transferencia no procesa una transacción bancaria. Devoluciones, retiros y diferencias de caja requieren capacidad y autorización. Las solicitudes de cancelación de TPV tienen folio y **solo AUXTI o Superadministrador pueden autorizarlas**, excluyendo Gerencia; las ventas cobradas no se borran, se corrigen con movimientos vinculados. No se cierra una caja ajena mediante un identificador conocido.
 
 ## 7. Dashboard y presupuesto de ventas
 
@@ -142,7 +142,7 @@ Filtros y detalle: período → razón social → canal → sucursal → vendedo
 
 ## 8. Formatos de impresión
 
-**Documento comercial, composición Odoo 14 [O7](FUENTES.md):** logo GMP, empresa, cliente/direcciones, título Presupuesto/Pedido y folio, fecha y vigencia, vendedor, referencia, tabla SKU/descripción/cantidad/unidad/precio/descuento/importes, subtotal, impuestos, total, condiciones y aceptación/firma. Carta propuesta y A4 alternativo. Encabezados de tabla repetidos, folios de página y términos después de las líneas. Plantilla versionada; las reimpresiones conservan datos y condiciones históricos.
+**Documento comercial, composición Odoo 14 [O7](FUENTES.md):** logo JM, empresa, cliente/direcciones, título Presupuesto/Pedido y folio, fecha y vigencia, vendedor, referencia, tabla SKU/descripción/cantidad/unidad/precio/descuento/importes, subtotal, impuestos, total, condiciones y aceptación/firma. Carta propuesta y A4 alternativo. Encabezados de tabla repetidos, folios de página y términos después de las líneas. Plantilla versionada; las reimpresiones conservan datos y condiciones históricos.
 
 **Ticket Bixolon:** rollo de 80 mm y contenido de 72 mm, reutilizando la estrategia de impresión existente. Empresa, sucursal/caja/cajero, folio/fecha, cliente si aplica, SKU y descripción legibles, cantidad/unidad/precio, descuentos, total, forma de pago, recibido y cambio, referencias a pedido y pie. En presupuesto se rotula PRESUPUESTO, sin afirmar pago; en venta se identifica el cobro. Firmas solo donde el documento comercial lo requiera, al final.
 

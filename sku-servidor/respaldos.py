@@ -2,7 +2,7 @@
 import base64,copy,hashlib,hmac,json,pathlib,re,uuid,zipfile,io
 from requisiciones import BRANCHES,AREAS,Conflict,now
 from areas import default_catalog,validate_catalog
-MODULES={'compras':'SKU Compras','ventas':'SKU Ventas','requisiciones':'Requisición de compras / materiales','comercial':'Pedidos institucionales y Expendios'}
+MODULES={'compras':'SKU Compras','ventas':'SKU Ventas','requisiciones':'Requisición de compras / materiales','comercial':'Pedidos institucionales y TPV'}
 TABLES=('req_materials','req_masters','req_branches','req_series_registry','req_documents','req_costs','req_reports','req_report_features','req_changes','req_document_versions','req_images','req_areas')
 def digest(value):return hashlib.sha256(json.dumps(value,sort_keys=True,ensure_ascii=False,separators=(',',':'),allow_nan=False).encode()).hexdigest()
 def check(condition,message):
@@ -44,7 +44,7 @@ class BackupStore:
    tables[table]={'columnas':columns,'filas':[list(row) for row in db.execute('SELECT * FROM '+table+' ORDER BY '+order)]}
   return {'tablas':tables}
  def envelope(self,module,payload,actor):
-  value={'formato':'GMP-RESPALDO','version':1,'modulo':module,'creado':now(),'creadoPor':actor['email'],'datos':payload};return {**value,'checksum':digest(value)}
+  value={'formato':'JM-RESPALDO','version':1,'modulo':module,'creado':now(),'creadoPor':actor['email'],'datos':payload};return {**value,'checksum':digest(value)}
  def create(self,module,actor):
   self.authorize(actor,module)
   with self.store.connect() as db:
@@ -53,7 +53,7 @@ class BackupStore:
   check(isinstance(backup,dict),'Archivo de respaldo inválido.')
   if backup.get('formato') is None and module in ('compras','ventas') and 'state' in backup and 'master' in backup:
    check(backup['state'].get('version')==(3 if module=='compras' else 1),'El respaldo antiguo pertenece a otro módulo.');return {'revision':backup.get('revision',0),'catalogo':{k:v for k,v in backup.items() if k not in ('revision','catalogos')}},True
-  check(backup.get('formato')=='GMP-RESPALDO' and backup.get('version')==1,'Formato o versión de respaldo no compatibles.')
+  check(backup.get('formato')=='JM-RESPALDO' and backup.get('version')==1,'Formato o versión de respaldo no compatibles.')
   check(backup.get('modulo')==module,'El archivo pertenece a otro módulo; cambia la selección.')
   expected=backup.get('checksum');check(isinstance(expected,str) and hmac.compare_digest(expected,digest({k:v for k,v in backup.items() if k!='checksum'})),'El archivo está incompleto o su comprobación de integridad no coincide.')
   check(isinstance(backup.get('datos'),dict),'Faltan los datos del respaldo.');return copy.deepcopy(backup['datos']),False
@@ -97,7 +97,7 @@ class BackupStore:
    image=json.loads(row['payload']);check(row['material_id'] in materials and bool(re.fullmatch('[a-f0-9]{32}',row['image_id'])) and isinstance(image,dict),'Imagen sin material o identificador válido.')
    raw=base64.b64decode(row.get('contenido',''),validate=True);width,height=validate_png(raw,image.get('archivo',''))
    check(image.get('ancho')==width and image.get('alto')==height and image.get('bytes')==len(raw) and all(isinstance(image.get(k),str) for k in ('skuAlCargar','actualizado','cargadoPor')),'Metadatos de imagen inválidos.')
-  branches=unpacked['req_branches'];check({r['branch'] for r in branches}==set(BRANCHES) and len(branches)==len(BRANCHES),'Deben existir las cuatro sucursales.')
+  branches=unpacked['req_branches'];check({r['branch'] for r in branches}==set(BRANCHES) and len(branches)==len(BRANCHES),'Deben existir las sucursales configuradas.')
   for row in branches:check(re.fullmatch('[A-Z0-9][A-Z0-9-]{1,19}',row['series']) and type(row['next_folio']) is int and 1<=row['next_folio']<=1000000000 and type(row['revision']) is int and row['revision']>=1,'Serie o folio inválido.')
   registry={}
   for row in unpacked['req_series_registry']:

@@ -20,8 +20,9 @@ def parse_master(content):
    if c is None:return ''
    v=c.findtext('m:v','',N)
    return strings[int(v)] if c.get('t')=='s' and v else ''.join(t.text or '' for t in c.iter('{'+NS+'}t')) if c.get('t')=='inlineStr' else v
+  headers={col:norm(value(cells.get(col+'1'))) for col in ('A','H','I','J','K','N','O')}
   for col,word in {'A':'SKU','H':'DESCRIPCION','I':'PRECIO','J':'RUTA','K':'DESPACHO','N':'IMPUESTO','O':'UOM'}.items():
-   if word not in norm(value(cells.get(col+'1'))):raise ValueError(f'Encabezado {col} incorrecto: se esperaba {word}. Solo se procesa SUGERIDO.')
+   if word not in headers[col] and not (col=='J' and 'MINIMO' in headers[col]) and not (col=='K' and 'REMATE' in headers[col]):raise ValueError(f'Encabezado {col} incorrecto: se esperaba {word}. Solo se procesa SUGERIDO.')
   products=[];seen=set()
   for row in rows:
    sku=norm(row.get('A'));n=row['fila'];name=row['H'].strip()
@@ -30,9 +31,9 @@ def parse_master(content):
    rate=amount(rate_value.replace('%','').strip()) if rate_value.upper() not in ('','NULL','N/A','NA') else None
    if rate is not None and is_percent and '%' not in rate_value:rate*=100
    if rate is not None and rate not in (0,8,16):raise ValueError(f'Fila {n}: impuesto inválido, se permite 0%, 8% o 16%.')
-   prices={key:optional_price(row.get(col,'')) for key,col in [('PUBLICO','I'),('RUTA','J'),('DESPACHO','K')]}
-   channel=norm(row.get('W',''))
-   if channel and channel not in ('INSTITUCIONALES','EXPENDIOS','AMBOS'):raise ValueError(f'Fila {n}: CANAL en W debe ser INSTITUCIONALES, EXPENDIOS o AMBOS.')
+   prices={key:optional_price(row.get(col,'')) for key,col in [('PUBLICO','I'),('MINIMO' if 'MINIMO' in norm(headers.get('J','')) else 'RUTA','J'),('REMATE' if 'REMATE' in norm(headers.get('K','')) else 'DESPACHO','K')]}
+   channel=norm(row.get('W',''));channel='EXPENDIOS' if channel=='TPV' else channel
+   if channel and channel not in ('INSTITUCIONALES','EXPENDIOS','AMBOS'):raise ValueError(f'Fila {n}: CANAL en W debe ser INSTITUCIONALES, TPV o AMBOS.')
    institutional=channel!='EXPENDIOS';expendio=channel in ('EXPENDIOS','AMBOS') if channel else norm(row.get('G')) in ('SI','S','1','TRUE','VERDADERO','X')
    unit=str(row.get('O','')).strip()
    if not unit or len(name)>300:raise ValueError(f'Fila {n}: revisa descripción y UOM en O.')
@@ -57,7 +58,7 @@ def import_master(cm,data,actor):
    row=db.execute('SELECT revision,payload FROM cm_products WHERE sku=?',(product['sku'],)).fetchone();added+=not bool(row);updated+=bool(row);prices=product['precios'];payload={k:v for k,v in product.items() if k!='precios'}
    if row and json.loads(row[1]).get('origen')=='MANUAL':manual+=1
    else:db.execute('INSERT INTO cm_products VALUES(?,?,?) ON CONFLICT(sku) DO UPDATE SET payload=excluded.payload,revision=excluded.revision',(product['sku'],dumps(payload),(row[0] if row else 0)+1))
-   missing=(['IVA'] if product['iva'] is None else [])+(['PRECIO PUBLICO'] if product['institucional'] and prices['PUBLICO'] is None else [])+(['PRECIO EXPENDIO'] if product['expendio'] and prices['RUTA'] is None and prices['DESPACHO'] is None else [])
+   missing=(['IVA'] if product['iva'] is None else [])+(['PRECIO PUBLICO'] if product['institucional'] and prices['PUBLICO'] is None else [])+(['PRECIO EXPENDIO'] if product['expendio'] and all(value is None for value in prices.values()) else [])
    if missing:pending.append({'sku':product['sku'],'descripcion':product['nombre'],'faltantes':missing})
    for company in companies:
     for listing,price in prices.items():

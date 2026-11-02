@@ -1,4 +1,4 @@
-"""Servidor SKU JAD: Python estándar, SQLite y control de concurrencia."""
+"""Servidor ERP JM Lite: Python estándar, SQLite y control de concurrencia."""
 import argparse,base64,contextlib,datetime,hashlib,hmac,http.server,http.cookies,json,pathlib,re,secrets,sqlite3,time,unicodedata,zipfile,io,sys,threading
 ROOT=pathlib.Path(__file__).resolve().parent
 sys.path.insert(0,str(ROOT))
@@ -11,16 +11,21 @@ from reporte_export import report_xlsx,report_pdf,select_detail
 from autorizaciones import WorkflowStore
 from compras import PurchaseImporter,export_products
 from respaldos import BackupStore
-from app_info import TITLE,VERSION,SUPPORT_LINE,ADMIN_EMAIL,ADMIN_NAME
+from app_info import TITLE,VERSION,SUPPORT_LINE,ADMIN_EMAIL,ADMIN_NAME,is_internal_admin
 from imagenes import ImageStore
 from aprobaciones_admin import AdminApprovals
 from comercial_routes import CommercialAPI
 from pedidos_compra_routes import PurchaseAPI
 from inventarios_routes import InventoryAPI
+from enterprise import Enterprise
+from quality_lite import QualityLite
+from catalog_loads import CatalogLoads
+from crm import CRM
+from sucursales import save_branch
 APP_DIR=pathlib.Path(sys.executable).resolve().parent if getattr(sys,'frozen',False) else ROOT
 ALPHABET='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 MAX_BODY=25*1024*1024
-ROLES={'superadmin':'SUPERADMINISTRADOR','auxti':'AUXTI','visualizador':'VISUALIZADOR','ventas':'VENTAS','compras':'COMPRAS','alta':'ALTA DE PRODUCTOS','gerente':'GERENTE','almacenista':'ALMACENISTA','requisicion':'REQUISICIÓN','ventaspasteleria':'VENTASPASTELERIA','ventasins':'VentasIns','expendios':'Expendios'}
+ROLES={'superadmin':'SUPERADMINISTRADOR','auxti':'AUXTI','visualizador':'VISUALIZADOR','ventas':'VENTAS','compras':'COMPRAS','alta':'ALTA DE PRODUCTOS','gerente':'GERENTE','almacenista':'ALMACENISTA','requisicion':'REQUISICIÓN','ventaspasteleria':'VENTASPASTELERIA','ventasins':'VENDEDOR','expendios':'TPV','calidad':'CALIDAD'}
 def read_scope(actor,scope):
  require_module(actor,scope)
 def write_scope(actor,scope):
@@ -87,9 +92,12 @@ def protect(old,new):
 class Store:
  def __init__(self,directory,initial_admin=None):
   self._transactions=threading.local()
+  self.require_activation=False
   self.directory=pathlib.Path(directory);self.directory.mkdir(parents=True,exist_ok=True);self.path=self.directory/'sku.sqlite3';self.catalogs=json.loads((ROOT/'catalogos.json').read_text(encoding='utf8'))
   from sucursales import load_branches
   load_branches(self)
+  from taxonomy import Taxonomy
+  self.taxonomy=Taxonomy(self)
   with self.connect() as db:
    db.execute('PRAGMA journal_mode=WAL');db.execute('CREATE TABLE IF NOT EXISTS catalog (id INTEGER PRIMARY KEY CHECK(id=1),revision INTEGER NOT NULL,payload TEXT NOT NULL)');db.execute('CREATE TABLE IF NOT EXISTS history (revision INTEGER PRIMARY KEY,created TEXT NOT NULL,payload TEXT NOT NULL)')
    if not db.execute('SELECT 1 FROM catalog').fetchone():
@@ -99,6 +107,7 @@ class Store:
    db.execute('CREATE TABLE IF NOT EXISTS user_requisition_access(email TEXT PRIMARY KEY,sucursales TEXT NOT NULL,almacenes TEXT NOT NULL)')
    db.execute('CREATE TABLE IF NOT EXISTS role_modules(role TEXT PRIMARY KEY,modules TEXT NOT NULL,revision INTEGER NOT NULL)')
    for role,modules in DEFAULTS.items():db.execute('INSERT OR IGNORE INTO role_modules VALUES(?,?,1)',(role,json.dumps(modules)))
+   db.execute('UPDATE role_modules SET modules=? WHERE role=?',(json.dumps(list(MODULES)),'superadmin'))
    db.execute('CREATE TABLE IF NOT EXISTS permission_features(key TEXT PRIMARY KEY)')
    if not db.execute("SELECT 1 FROM permission_features WHERE key='capabilities-v1'").fetchone():
     for role in ('ventas','compras','alta'):
@@ -122,6 +131,18 @@ class Store:
        try:salt,digest=new_password(password);admin={'salt':salt,'password_hash':digest}
        except ValueError as error:print(str(error),flush=True)
     db.execute('INSERT INTO users VALUES(?,?,?,?,?,1)',(ADMIN_EMAIL,ADMIN_NAME,'superadmin',admin['salt'],admin['password_hash']))
+   db.execute('CREATE TABLE IF NOT EXISTS app_internal_admins(email TEXT PRIMARY KEY)');db.execute('INSERT OR IGNORE INTO app_internal_admins VALUES(?)',(ADMIN_EMAIL,))
+   internal_seed=initial_admin
+   if internal_seed is None and (ROOT/'initial-admin.json').exists():internal_seed=json.loads((ROOT/'initial-admin.json').read_text(encoding='utf8'))
+   emails=(internal_seed or {}).get('internal_emails',[])
+   if not isinstance(emails,list) or len(emails)>5:raise ValueError('Configuración privada de cuentas internas inválida.')
+   for email in emails:
+    if not isinstance(email,str) or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',email) or len(email)>160:raise ValueError('Cuenta interna inválida.')
+    email=email.strip().lower();salt,digest=db.execute('SELECT salt,password_hash FROM users WHERE email=?',(ADMIN_EMAIL,)).fetchone()
+    db.execute('INSERT OR IGNORE INTO users VALUES(?,?,?,?,?,1)',(email,ADMIN_NAME,'superadmin',salt,digest));db.execute('INSERT OR IGNORE INTO app_internal_admins VALUES(?)',(email,))
+   db.execute("UPDATE users SET role='superadmin',active=1 WHERE email IN (SELECT email FROM app_internal_admins)")
+  from auth_security import AccountSecurity
+  self.security=AccountSecurity(self)
  @contextlib.contextmanager
  def connect(self):
   current=getattr(self._transactions,'connection',None)
@@ -162,14 +183,15 @@ class Store:
    protect(old,updated);validate(updated,self.catalogs)
    db.execute('INSERT INTO history VALUES(?,?,?)',(rev,datetime.datetime.now(datetime.timezone.utc).isoformat(),payload));db.execute('UPDATE catalog SET revision=?,payload=? WHERE id=1',(rev+1,json.dumps(updated,ensure_ascii=False)));db.execute('DELETE FROM history WHERE revision < ?',(rev-99,))
   return {**updated,'revision':rev+1}
- def login(self,email,password,ip):
+ def login(self,email,password,ip,code=''):
   email=str(email).strip().lower();key=ip+'|'+email;now=time.time()
   with self.connect() as db:
+   db.execute('BEGIN IMMEDIATE')
    attempt=db.execute('SELECT count,until FROM login_attempts WHERE key=?',(key,)).fetchone()
    if attempt and attempt[0]>=8 and attempt[1]>now:raise PermissionError('Demasiados intentos. Espera 15 minutos.')
    row=db.execute('SELECT email,name,role,salt,password_hash,active FROM users WHERE email=?',(email,)).fetchone()
    valid=isinstance(password,str) and len(password)<=200 and hmac.compare_digest(password_hash(password,row[3] if row else '00'*16),row[4] if row else '00'*32)
-   if not row or not row[5] or not valid:
+   if not row or not row[5] or not valid or not self.security.verify_login(db,email,code):
     count=attempt[0]+1 if attempt and attempt[1]>now else 1
     db.execute('INSERT OR REPLACE INTO login_attempts VALUES(?,?,?)',(key,count,now+900));result=None
    else:
@@ -177,9 +199,15 @@ class Store:
   return result
  def session(self,token):
   with self.connect() as db:
-   row=db.execute('SELECT u.email,u.name,u.role,s.csrf,a.sucursales,a.almacenes,p.modules FROM sessions s JOIN users u ON s.email=u.email LEFT JOIN user_requisition_access a ON a.email=u.email LEFT JOIN role_modules p ON p.role=u.role WHERE s.token_hash=? AND s.expires>? AND u.active=1',(hashlib.sha256(token.encode()).hexdigest(),time.time())).fetchone()
+   row=db.execute('SELECT u.email,u.name,u.role,s.csrf,a.sucursales,a.almacenes,p.modules,EXISTS(SELECT 1 FROM app_internal_admins i WHERE i.email=u.email) FROM sessions s JOIN users u ON s.email=u.email LEFT JOIN user_requisition_access a ON a.email=u.email LEFT JOIN role_modules p ON p.role=u.role WHERE s.token_hash=? AND s.expires>? AND u.active=1',(hashlib.sha256(token.encode()).hexdigest(),time.time())).fetchone()
   if not row or row[2] not in ROLES:return None
-  return {**dict(zip(('email','name','role','csrf'),row[:4])),'sucursales':json.loads(row[4] or '[]'),'almacenes':json.loads(row[5] or '[]'),'modulos':list(MODULES) if row[2]=='superadmin' else enabled_modules({'role':row[2],'modulos':json.loads(row[6] or '[]')})}
+  actor={**dict(zip(('email','name','role','csrf'),row[:4])),'internalAdmin':bool(row[7]),'sucursales':json.loads(row[4] or '[]'),'almacenes':json.loads(row[5] or '[]'),'modulos':list(MODULES) if row[2]=='superadmin' else enabled_modules({'role':row[2],'modulos':json.loads(row[6] or '[]')})}
+  if not is_internal_admin(actor):
+   with self.connect() as db:
+    exists=db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='app_meta'").fetchone();contract=db.execute("SELECT value FROM app_meta WHERE key='module_contract'").fetchone() if exists else None
+   allowed=json.loads(contract[0])['modules'] if contract else [] if getattr(self,'enforce_contract',False) else list(MODULES)
+   actor['modulos']=[m for m in actor['modulos'] if m in allowed]
+  return actor
  def profiles(self):
   with self.connect() as db:rows=db.execute('SELECT role,modules,revision FROM role_modules ORDER BY rowid').fetchall()
   return {'perfiles':[{'perfil':role,'nombre':ROLES[role],'modulos':list(MODULES) if role=='superadmin' else json.loads(modules),'revision':revision} for role,modules,revision in rows],'modulos':MODULES}
@@ -197,7 +225,7 @@ class Store:
  def logout(self,token):
   with self.connect() as db:db.execute('DELETE FROM sessions WHERE token_hash=?',(hashlib.sha256(token.encode()).hexdigest(),))
  def users(self):
-  with self.connect() as db:rows=db.execute('SELECT u.email,u.name,u.role,u.active,a.sucursales,a.almacenes FROM users u LEFT JOIN user_requisition_access a ON u.email=a.email ORDER BY u.email').fetchall()
+  with self.connect() as db:rows=db.execute('SELECT u.email,u.name,u.role,u.active,a.sucursales,a.almacenes FROM users u LEFT JOIN user_requisition_access a ON u.email=a.email WHERE u.email NOT IN (SELECT email FROM app_internal_admins) ORDER BY u.email').fetchall()
   return [{**dict(zip(('email','name','role','active'),r[:4])),'sucursales':json.loads(r[4] or '[]'),'almacenes':json.loads(r[5] or '[]')} for r in rows]
  def user_fingerprint(self,db,email):
   row=db.execute('SELECT * FROM users WHERE email=?',(email,)).fetchone();access=db.execute('SELECT * FROM user_requisition_access WHERE email=?',(email,)).fetchone()
@@ -207,6 +235,8 @@ class Store:
   email=str(data.get('email','')).strip().lower();name=str(data.get('name','')).strip();role=data.get('role');active=data.get('active',True);password=data.get('password','')
   if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',email) or len(email)>160 or not 1<=len(name)<=100 or role not in ROLES or type(active) is not bool:raise ValueError('Correo, nombre o perfil inválido.')
   if actor['role']=='auxti' and role=='superadmin':raise PermissionError('AUXTI no puede asignar Superadministrador.')
+  with self.connect() as db:internal=db.execute('SELECT 1 FROM app_internal_admins WHERE email=?',(email,)).fetchone()
+  if internal:raise ValueError('Esta cuenta está reservada y no se modifica desde Usuarios.')
   if email==ADMIN_EMAIL and (role!='superadmin' or not active):raise ValueError('La cuenta de sistemas debe permanecer activa como super administrador.')
   if email==actor['email'] and (not active or role!=actor['role']):raise ValueError('No puedes quitarte tu acceso de super administrador.')
   with self.connect() as db:
@@ -222,7 +252,7 @@ class Store:
     values=data.get(field,list(BRANCHES) if role=='gerente' and field=='sucursales' else json.loads(previous[index]) if previous else [])
     if not isinstance(values,list) or any(not isinstance(v,str) or v not in BRANCHES for v in values) or len(set(values))!=len(values):raise ValueError('Asignación de sucursales o almacenes inválida.')
     assigned[field]=values
-   if role=='gerente' and set(assigned['sucursales'])!=set(BRANCHES):raise ValueError('El gerente consulta las cuatro sucursales.')
+   if role=='gerente' and set(assigned['sucursales'])!=set(BRANCHES):raise ValueError('El gerente consulta las sucursales configuradas.')
    if role=='almacenista' and not assigned['almacenes']:raise ValueError('Selecciona al menos un almacén para el almacenista.')
    if role=='requisicion' and not assigned['sucursales']:raise ValueError('Selecciona al menos una sucursal para el perfil Requisición.')
    if role not in ('gerente','requisicion'):assigned['sucursales']=[]
@@ -233,6 +263,8 @@ class Store:
    db.execute('INSERT INTO user_requisition_access VALUES(?,?,?) ON CONFLICT(email) DO UPDATE SET sucursales=excluded.sucursales,almacenes=excluded.almacenes',(email,json.dumps(assigned['sucursales']),json.dumps(assigned['almacenes'])))
    if password or not active:db.execute('DELETE FROM sessions WHERE email=?',(email,))
 def create_handler(store):
+ from finance import Finance
+ from crm_management import CRMManagement
  commercial=CommercialAPI(store)
  sales=SalesStore(store)
  commercial.sync.apply_initial()
@@ -247,12 +279,16 @@ def create_handler(store):
  images=ImageStore(store,requisitions)
  backups=BackupStore(store,validate,reports)
  admin_approvals=AdminApprovals(store,sales,images,backups)
+ enterprise=Enterprise(store);quality=QualityLite(store);loads=CatalogLoads(store,purchases,sales,requisitions,reports,commercial.cm,quality);crm=CRMManagement(commercial.cm);finance=Finance(store,commercial.cm,procurement.po)
  class Handler(http.server.BaseHTTPRequestHandler):
+  def active(self,actor):
+   if not store.require_activation or is_internal_admin(actor):return True
+   with store.connect() as db:return bool(db.execute('SELECT 1 FROM app_license WHERE id=1').fetchone())
   def auth(self):
    cookie=http.cookies.SimpleCookie()
    try:cookie.load(self.headers.get('Cookie',''))
    except http.cookies.CookieError:return None
-   self.token=cookie['gmp_session'].value if 'gmp_session' in cookie else ''
+   self.token=cookie['jm_session'].value if 'jm_session' in cookie else ''
    return store.session(self.token) if self.token else None
   def reply(self,status,body,ctype='application/json; charset=utf-8',cookie=None):
    if isinstance(body,dict):body=json.dumps(body,ensure_ascii=False).encode()
@@ -262,11 +298,71 @@ def create_handler(store):
   def do_GET(self):
    path=self.path.split('?')[0]
    if path=='/logo.svg':return self.reply(200,(ROOT/'public/logo.svg').read_bytes(),'image/svg+xml')
+   if path in ('/halloween-art.svg','/navidad-art.svg'):return self.reply(200,(ROOT/'public'/path[1:]).read_bytes(),'image/svg+xml')
+   if path=='/theme.js':return self.reply(200,(ROOT/'public/theme.js').read_bytes(),'text/javascript; charset=utf-8')
    actor=self.auth()
+   if actor and not self.active(actor):return self.reply(403,{'error':'Sistemas debe activar esta instalación antes de habilitar el acceso de usuarios.'})
    if path in ('/','/index.html'):
     name='index.html' if actor else 'login.html';return self.reply(200,(ROOT/'public'/name).read_bytes(),'text/html; charset=utf-8')
    if not actor:return self.reply(401,{'error':'Inicia sesión para continuar.'})
-   if path=='/api/me':return self.reply(200,{'user':actor,'roles':ROLES,'app':{'titulo':TITLE,'version':VERSION,'soporte':SUPPORT_LINE}})
+   if path=='/workspace-menu.js':return self.reply(200,(ROOT/'public/workspace-menu.js').read_bytes(),'text/javascript; charset=utf-8')
+   if path in ('/finanzas','/finance.js'):
+    if not any(m in enabled_modules(actor) for m in ('pedidoscompra','ventasins')):return self.reply(403,{'error':'Módulo financiero no habilitado.'})
+    name='finance.html' if path=='/finanzas' else 'finance.js';return self.reply(200,(ROOT/'public'/name).read_bytes(),('text/html' if path=='/finanzas' else 'text/javascript')+'; charset=utf-8')
+   if path.startswith('/api/finanzas/'):
+    try:
+     q={k:v[0] for k,v in parse_qs(urlsplit(self.path).query).items()}
+     if path=='/api/finanzas/meta':result=finance.metadata(q,actor)
+     elif path=='/api/finanzas/cuentas':result=finance.list(q,actor)
+     else:raise ValueError('Consulta financiera no disponible.')
+     return self.reply(200,result)
+    except PermissionError as e:return self.reply(403,{'error':str(e)})
+    except (ValueError,KeyError,TypeError) as e:return self.reply(400,{'error':str(e)})
+   if path=='/api/me':return self.reply(200,{'user':actor,'roles':ROLES,'catalogos':store.taxonomy.catalogs(),'app':{'titulo':TITLE,'version':VERSION,'soporte':SUPPORT_LINE,'edicion':enterprise.edition()}})
+   if path in ('/empresa','/cargas','/enterprise.js','/calidad','/quality.js','/crm','/crm.js','/seguridad','/security.js'):
+    try:
+     if path in ('/calidad','/quality.js'):require_module(actor,'calidad')
+     elif path in ('/crm','/crm.js'):require_module(actor,'ventasins')
+     elif path=='/empresa':enterprise.admin(actor)
+     name={'/empresa':'enterprise.html','/cargas':'enterprise.html','/enterprise.js':'enterprise.js','/calidad':'quality.html','/quality.js':'quality.js','/crm':'crm.html','/crm.js':'crm.js','/seguridad':'security.html','/security.js':'security.js'}[path]
+     return self.reply(200,(ROOT/'public'/name).read_bytes(),('text/javascript' if name.endswith('.js') else 'text/html')+'; charset=utf-8')
+    except PermissionError as e:return self.reply(403,{'error':str(e)})
+   if path.startswith(('/api/empresa/','/api/calidad/','/api/crm/','/api/seguridad/')):
+    try:
+     q={k:v[0] for k,v in parse_qs(urlsplit(self.path).query).items()}
+     if path=='/api/empresa/taxonomia':result=store.taxonomy.get(actor)
+     elif path=='/api/empresa/sat':
+      from sat_catalogs import search
+      result=search(q)
+     elif path=='/api/empresa/catalogos-producto':
+      from product_options import listed
+      with store.connect() as db:result={'registros':listed(db),'puedeConfigurar':actor['role']=='superadmin'}
+     elif path=='/api/seguridad/estado':result=store.security.status(actor)
+     elif path=='/api/empresa/config':result=enterprise.get(actor)
+     elif path=='/api/empresa/impuestos':result=enterprise.taxes(int(q.get('empresa','0')),actor)
+     elif path=='/api/empresa/impuestos/layout':
+      enterprise.admin(actor)
+      from impuestos_import import layout
+      result=layout()
+     elif path=='/api/empresa/logo':result=enterprise.company_logo(int(q.get('empresa','0')),actor)
+     elif path=='/api/empresa/modulos':result=enterprise.contract(actor)
+     elif path=='/api/crm/planes':result=crm.plans(q,actor)
+     elif path=='/api/crm/reporte-comisiones':result=crm.commission_report(q,actor)
+     elif path in ('/api/crm/comisiones-excel','/api/crm/comisiones-csv','/api/crm/comisiones-pdf'):result=crm.commission_export(q,actor,path.rsplit('-',1)[-1])
+     elif path=='/api/empresa/layouts':result=loads.listed(actor)
+     elif path.startswith('/api/empresa/layout/'):result=loads.layout(path.rsplit('/',1)[-1],actor)
+     elif path=='/api/calidad/registros':result=quality.get(q,actor)
+     elif path=='/api/calidad/tablero':result=quality.dashboard(actor)
+     elif path in ('/api/calidad/excel','/api/calidad/pdf'):result=quality.export(q,actor,path.endswith('/pdf'))
+     elif path.startswith('/api/calidad/archivo/'):result=quality.file(path.rsplit('/',1)[-1],actor)
+     elif path=='/api/crm/meta':result=crm.metadata(actor,int(q.get('empresa','0')))
+     elif path=='/api/crm/oportunidades':result=crm.list(q,actor)
+     elif path=='/api/crm/dashboard':result=crm.dashboard(q,actor)
+     else:raise ValueError('Opción no disponible.')
+     return self.reply(200,*result) if isinstance(result,tuple) else self.reply(200,result)
+    except PermissionError as e:return self.reply(403,{'error':str(e)})
+    except RequisitionConflict as e:return self.reply(409,{'error':str(e)})
+    except (ValueError,KeyError,TypeError) as e:return self.reply(400,{'error':str(e)})
    if path in ('/comercial','/commercial.js','/commercial.css'):
     if not any(m in enabled_modules(actor) for m in ('ventasins','expendios')):return self.reply(403,{'error':'Módulo comercial no habilitado.'})
     file,kind={'/comercial':('commercial.html','text/html'),'/commercial.js':('commercial.js','text/javascript'),'/commercial.css':('commercial.css','text/css')}[path]
@@ -305,6 +401,13 @@ def create_handler(store):
     except (ValueError,KeyError,TypeError) as e:return self.reply(400,{'error':str(e)})
    if path.startswith('/api/respaldos'):
     try:
+     if path=='/api/respaldos/general':
+      from respaldo_general import create
+      with create(store,actor) as (archive,name):
+       self.send_response(200);self.send_header('Content-Type','application/zip');self.send_header('Content-Length',str(archive.stat().st_size));self.send_header('Content-Disposition','attachment; filename="'+name+'"');self.send_header('Cache-Control','no-store');self.send_header('X-Content-Type-Options','nosniff');self.end_headers()
+       with archive.open('rb') as source:
+        while block:=source.read(1024*1024):self.wfile.write(block)
+      return
      previous=re.fullmatch('/api/respaldos/previo/([a-f0-9]{32})',path)
      if previous:return self.reply(200,backups.previous(previous[1],actor),'application/json; charset=utf-8')
      if path=='/api/respaldos':return self.reply(200,backups.create(parse_qs(urlsplit(self.path).query).get('modulo',[''])[0],actor))
@@ -400,14 +503,41 @@ def create_handler(store):
    if origin and origin not in ('http://'+self.headers.get('Host',''),'https://'+self.headers.get('Host','')):return self.reply(403,{'error':'Origen no permitido.'})
    try:
     if self.path=='/api/login' and self.command=='POST':
-     data=self.read_body();token=store.login(data.get('email',''),data.get('password',''),self.client_address[0])
-     if not token:return self.reply(401,{'error':'Correo o contraseña incorrectos.'})
-     return self.reply(200,{'ok':True},cookie='gmp_session='+token+'; HttpOnly; SameSite=Strict; Path=/; Max-Age=43200')
+     data=self.read_body();token=store.login(data.get('email',''),data.get('password',''),self.client_address[0],data.get('codigo',''))
+     if not token:return self.reply(401,{'error':'Datos de acceso incorrectos. Si activaste 2FA, ingresa tu código o un código de recuperación.'})
+     if not self.active(store.session(token)):
+      store.logout(token);return self.reply(403,{'error':'Sistemas debe activar esta instalación antes de habilitar usuarios.'})
+     return self.reply(200,{'ok':True},cookie='jm_session='+token+'; HttpOnly; SameSite=Strict; Path=/; Max-Age=43200')
     actor=self.auth()
     if not actor:return self.reply(401,{'error':'La sesión expiró. Inicia sesión de nuevo.'})
+    if not self.active(actor):return self.reply(403,{'error':'Instalación pendiente de activación por Sistemas.'})
     if not hmac.compare_digest(self.headers.get('X-CSRF-Token',''),actor['csrf']):return self.reply(403,{'error':'Solicitud sin verificación de sesión.'})
+    if self.path.startswith('/api/seguridad/'):
+     data=self.read_body();actions={'/api/seguridad/preparar':store.security.begin,'/api/seguridad/confirmar':store.security.confirm,'/api/seguridad/desactivar':store.security.disable,'/api/seguridad/password':store.security.change_password}
+     if self.path not in actions:raise ValueError('Acción de seguridad no disponible.')
+     return self.reply(200,actions[self.path](data,actor))
+    if self.path.startswith(('/api/empresa/','/api/calidad/','/api/crm/')):
+     if self.path=='/api/empresa/catalogos-producto':
+      from product_options import save
+      return self.reply(200,save(store,self.read_body(),actor))
+     if self.path=='/api/empresa/impuestos/importar':
+      from impuestos_import import run
+      return self.reply(200,run(enterprise,self.read_body(),actor))
+     if self.path=='/api/empresa/impuestos':return self.reply(200,enterprise.save_tax(self.read_body(),actor))
+     if self.path=='/api/empresa/logo':return self.reply(200,enterprise.save_logo(self.read_body(),actor))
+     if self.path=='/api/empresa/edicion':return self.reply(200,enterprise.save_edition(self.read_body(),actor))
+     if self.path=='/api/empresa/modulos':return self.reply(200,enterprise.save_contract(self.read_body(),actor))
+     crm_actions={'/api/crm/vendedores':crm.add_seller,'/api/crm/comisiones':crm.commission,'/api/crm/acceso-tablero':crm.grant_dashboard,'/api/crm/planes':crm.save_plan}
+     if self.path in crm_actions:return self.reply(200,crm_actions[self.path](self.read_body(),actor))
+     data=self.read_body();actions={'/api/empresa/taxonomia':store.taxonomy.save,'/api/empresa/config':enterprise.save,'/api/empresa/activar':enterprise.activate,'/api/empresa/restablecer':enterprise.reset,'/api/empresa/sucursales':lambda d,a:save_branch(store,d,a),'/api/empresa/cargas':loads.run,'/api/calidad/guardar':quality.save,'/api/calidad/estado':quality.transition,'/api/calidad/version':quality.new_version,'/api/calidad/archivo':quality.attach,'/api/crm/asignar':crm.assign,'/api/crm/oportunidades':crm.save,'/api/crm/seguimiento':crm.follow}
+     if self.path not in actions:raise ValueError('Acción no disponible.')
+     return self.reply(200,actions[self.path](data,actor))
+    if self.path.startswith('/api/finanzas/'):
+     actions={'/api/finanzas/conceptos':finance.concept,'/api/finanzas/cuentas':finance.account,'/api/finanzas/pagos':finance.payment,'/api/finanzas/cancelar':finance.cancel}
+     if self.path not in actions:raise ValueError('Acción financiera no disponible.')
+     return self.reply(200,actions[self.path](self.read_body(),actor))
     if self.path=='/api/logout' and self.command=='POST':
-     store.logout(self.token);return self.reply(200,{'ok':True},cookie='gmp_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0')
+     store.logout(self.token);return self.reply(200,{'ok':True},cookie='jm_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0')
     if self.path.startswith('/api/inventarios/') and self.command=='POST':
      result=inventory.mutate(self.path,self.read_body(),actor);return self.reply(200,*result) if isinstance(result,tuple) else self.reply(200,result)
     if self.path.startswith('/api/pedidoscompra/') and self.command=='POST':
@@ -461,7 +591,8 @@ def create_handler(store):
      read_scope(actor,'ventas')
      if self.path.endswith('/importar'):require_module(actor,'cargar_maestro')
      else:write_scope(actor,'ventas')
-     data=self.read_body();result=sales.import_master(data,actor) if self.path.endswith('/importar') else sales.put(data,actor)
+     from sku_ficha import save_capture
+     data=self.read_body();result=sales.import_master(data,actor) if self.path.endswith('/importar') else save_capture(store,sales,commercial.cm,data,actor)
      if result is None:return self.reply(409,{'error':'Ventas cambió. Actualiza antes de guardar.'})
      return self.reply(200,result)
     return self.reply(404,{'error':'No encontrado.'})
@@ -483,16 +614,18 @@ def main():
   admin=json.loads(args.admin_seed.read_text(encoding='utf-8-sig'))
   if not isinstance(admin,dict) or not re.fullmatch('[0-9a-f]{32}',str(admin.get('salt',''))) or not re.fullmatch('[0-9a-f]{64}',str(admin.get('password_hash',''))):parser.error('Semilla de administrador inválida.')
  configpath=args.config.resolve()
- if not configpath.exists():configpath.write_text(json.dumps({'host':'0.0.0.0','port':8080},indent=2),encoding='utf8')
+ if not configpath.exists():configpath.write_text(json.dumps({'host':'0.0.0.0','port':8098},indent=2),encoding='utf8')
  config=json.loads(configpath.read_text(encoding='utf-8-sig'))
  if 'password' in config or 'user' in config:
   config={k:v for k,v in config.items() if k not in ('password','user')};configpath.write_text(json.dumps(config,indent=2),encoding='utf8')
- port=args.port if args.port is not None else config.get('port',8080)
+ port=args.port if args.port is not None else config.get('port',8098)
  if type(port) is not int or not 0<=port<=65535:parser.error('Puerto inválido: usa 1–65535, o 0 para asignación automática.')
  host=args.host or config.get('host','0.0.0.0')
  data_dir=pathlib.Path(args.data_dir or config.get('data_dir','data'))
  if not data_dir.is_absolute():data_dir=configpath.parent/data_dir
  store=Store(data_dir,initial_admin=admin)
+ store.require_activation=config.get('require_activation',False) is True
+ store.enforce_contract=config.get('require_module_contract',False) is True
  if args.initialize:
   print('Instalación inicializada. Administrador: '+ADMIN_EMAIL,flush=True);return
  if config.get('log_dir'):
@@ -503,7 +636,9 @@ def main():
   if log_path.exists():shutil.copy2(log_path,log_dir/'server.log.previous')
   sys.stdout=sys.stderr=log_path.open('w',encoding='utf8',buffering=1)
  handler=create_handler(store);handler.commercial.sync.start()
- server=http.server.ThreadingHTTPServer((host,port),handler);server.daemon_threads=True;port=server.server_port
+ try:server=http.server.ThreadingHTTPServer((host,port),handler)
+ except OSError as error:raise SystemExit(f'El puerto {port} esta ocupado o no esta disponible. Libera el puerto y vuelve a iniciar. No se utilizara otro puerto. ({error})')
+ server.daemon_threads=True;port=server.server_port
  print(f'\n{TITLE} v{VERSION}\n{SUPPORT_LINE}\nPuerto: {port}\nLocal: http://127.0.0.1:{port}\nRed/VPN: http://IP-DEL-SERVIDOR:{port}\nSuperadministrador: {ADMIN_EMAIL}\nInicia sesión con la contraseña configurada.\nDatos: {store.path}\nCtrl+C para detener.\n',flush=True)
  try:server.serve_forever()
  except KeyboardInterrupt:pass

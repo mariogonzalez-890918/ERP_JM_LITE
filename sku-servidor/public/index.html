@@ -209,6 +209,16 @@ body>header:not(#jmTopbar){background:var(--jm-nav)!important;color:#fff}
 :root[data-skin=muertos] .jm-art-muertos{display:block}
 :root[data-skin=muertos] .jm-launcher-heading::after{content:"Calaveritas";background:var(--jm-soft);color:var(--jm-text);border:1px solid var(--jm-border);padding:7px 12px;border-radius:3px;font-size:12px}
 :root[data-skin=muertos] #jmTopbar,:root[data-skin=muertos] .jm-header,:root[data-skin=muertos] .top{box-shadow:inset 0 -3px #e39a2d,inset 0 -6px #775099}
+/* Controles y decoración compartidos por todas las aplicaciones. */
+body>header .jm-theme-tools{flex-wrap:wrap;max-width:100%;color:#fff}
+body>header .jm-theme-tools label{color:inherit!important}
+:root[data-skin=prof][data-theme=light] body>header .jm-theme-tools{color:var(--jm-text)}
+body>header a{color:inherit!important}
+.jm-module-season:empty{display:none}
+.jm-module-season .jm-season-art{height:clamp(82px,16vw,160px);object-fit:contain;margin:0 0 20px;border:1px solid var(--jm-border);background:var(--jm-soft)}
+.metric,.metrics>div{background:var(--jm-surface)!important;color:var(--jm-text)!important;border-color:var(--jm-border)!important}
+@media(max-width:760px){body>header .jm-theme-tools{width:100%;margin-left:0;gap:8px}body>header .jm-theme-tools label{flex:1;min-width:85px;display:grid;gap:4px}body>header .jm-theme-tools select{max-width:none;width:100%}.jm-module-season .jm-season-art{height:82px}}
+@media print{.jm-module-season{display:none!important}}
 </style>
 <a class="jm-skip" href="#jmMain">Ir al contenido</a>
 <aside id="jmSidebar" aria-label="Menú principal">

@@ -10,10 +10,15 @@ impuestos, condiciones, impresión, cobros TPV, CRM con carteras, CXP/CXC,
 compras con recepción y devolución, y diario inmutable de inventarios.
 No presentar esos procesos como remisión física o factura fiscal.
 
+Avance implementado (2 de noviembre de 2026):
+
+- Conversión de presupuesto a pedido en documentos separados, con folios propios, relación en ambos sentidos y conservación de importes y partidas. La repetición o concurrencia no duplica pedidos. El presupuesto original queda aceptado y conserva sus versiones.
+- Varios almacenes nombrados por empresa/sucursal, sin cambiar destinos históricos de Compras. Bloqueo de salidas de Cuarentena y liberación autorizada transaccional hacia General o PT.
+- El perfil Ventas puede operar sus pedidos y reportes; clientes y asignaciones siguen bajo Gerencia/Superadministrador y las carteras permanecen privadas.
+
 Pendientes del ciclo ampliado:
 
-- Convertir cotización a pedido conservando referencia y sin recaptura; folios
-  y estados separados por empresa, responsables, vigencia y autorizaciones.
+- Ampliar vigencia, autorización y rechazo de cotizaciones; conservar la conversión separada y las referencias ya implementadas.
 - Reservas lógicas, disponibilidad y faltantes por almacén sin modificar físico.
 - Remisiones parciales que descuenten únicamente lo entregado. Evitar duplicar
   salida al volver a enviar o al facturar; consultar pendientes por partida.

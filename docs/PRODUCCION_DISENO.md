@@ -1,6 +1,6 @@
 # Producción: flujo propuesto y criterios de implementación
 
-Estado: análisis del flujo. No representa funcionalidades ya habilitadas.
+Estado: el flujo de Producción sigue en diseño. La base multialmacén y la liberación de Cuarentena ya están implementadas; no equivalen a órdenes de fabricación.
 
 ## Objetivo operativo
 
@@ -16,11 +16,9 @@ Producción, Producto terminado (PT) o Cuarentena. No crear nombres de empresas,
 sucursales o almacenes de muestra. Una sucursal puede tener varios almacenes.
 La función no sustituye los permisos ni la razón social del almacén.
 
-El esquema actual de Inventarios impone un almacén por empresa/sucursal mediante
-UNIQUE(company,branch). Es necesario migrar esa restricción, conservando los IDs,
-existencias, ciclos, movimientos y referencias actuales. El almacén existente
-queda como predeterminado; los nuevos se agregan mediante configuración.
-Recepciones, requisiciones y traspasos deben conservar su destino anterior.
+Se retiró la restricción de un almacén por empresa/sucursal. La migración conserva IDs, existencias, ciclos, movimientos y referencias. El almacén existente queda como destino histórico de las recepciones de Compras; los adicionales se agregan en Inventarios con Agregar almacén. Las requisiciones deben seleccionar un almacén cuando haya más de uno.
+
+Los nombres son configurables, sin crear ubicaciones de muestra. Cuarentena bloquea salidas ordinarias y se libera por Gerencia o Superadministrador hacia General o PT de la misma empresa. Se registra responsable de Calidad, motivo y dos movimientos atómicos al mismo costo. Ver ALMACENES_MULTI.md.
 
 La producción de una orden pertenece a una sola empresa. El movimiento entre
 empresas se resuelve mediante el traspaso multiempresa existente, con su propia

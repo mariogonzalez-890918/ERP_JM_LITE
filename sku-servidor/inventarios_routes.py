@@ -17,9 +17,9 @@ def kardex_export(result,filters,action,costs):
     for name,value in row.items():ET.SubElement(node,name).text='' if value is None else display_date(value) if name=='fecha' else str(value)
   ET.indent(root);return ET.tostring(root,encoding='utf-8',xml_declaration=True),'application/xml; charset=utf-8'
  summary=[['Almacén / Razón social','SKU / Material','Unidad','Inicial','Entradas','Salidas','Al corte','Actual']+(['Costo actual','Valor actual'] if costs else [])]
- for r in result['resumenPorSku']:summary.append([r['sucursal']+' / '+r['razonSocial'],r['sku']+' / '+r['nombre'],r['unidad'],r['saldoInicial'],r['entradas'],r['salidas'],r['saldoFinal'],r['existenciaActual']]+([r['costoUnitarioActual'],r['valorExistenciaActual']] if costs else []))
+ for r in result['resumenPorSku']:summary.append([r.get('nombreAlmacen',r['sucursal'])+' / '+r['sucursal']+' / '+r['razonSocial'],r['sku']+' / '+r['nombre'],r['unidad'],r['saldoInicial'],r['entradas'],r['salidas'],r['saldoFinal'],r['existenciaActual']]+([r['costoUnitarioActual'],r['valorExistenciaActual']] if costs else []))
  detail=[['Fecha','Concepto de movimiento','Almacén / Material','Unidad','Inicial','Entrada','Salida','Saldo anterior','Saldo','Referencia / Entrega / Recibe']+(['Costo / Importe'] if costs else [])]
- for r in result['movimientos']:detail.append([display_date(r['fecha']),r.get('concepto',r['tipo']),r['sucursal']+' / '+r['razonSocial']+' / '+r['sku']+' / '+r['nombre'],r['unidad'],r['inicial'],r['entrada'],r['salida'],r['antes'],r['saldo'],r['referencia']+' / '+r.get('entrega','')+' / '+r.get('recibe','')+' / '+r['actor']]+([r['costoUnitario']+' / '+r['importe']] if costs else []))
+ for r in result['movimientos']:detail.append([display_date(r['fecha']),r.get('concepto',r['tipo']),r.get('nombreAlmacen',r['sucursal'])+' / '+r['sucursal']+' / '+r['razonSocial']+' / '+r['sku']+' / '+r['nombre'],r['unidad'],r['inicial'],r['entrada'],r['salida'],r['antes'],r['saldo'],r['referencia']+' / '+r.get('entrega','')+' / '+r.get('recibe','')+' / '+r['actor']]+([r['costoUnitario']+' / '+r['importe']] if costs else []))
  subtitle='Almacén: '+filters.get('almacen','')+' · Desde: '+display_date(filters.get('desde',''))+' · Hasta: '+display_date(filters.get('hasta',''))+' · SKU: '+filters.get('sku','')+' · Dirección: '+filters.get('direccion','Todas')+' · Tipo: '+filters.get('tipo','Todos')
  note='El resumen incluye todas las entradas y salidas del periodo. Dirección y tipo filtran el detalle. El saldo anterior al conteo inicial es provisional.'
  def esc(v):return html.escape('Pendiente' if v is None else str(v))
@@ -70,9 +70,9 @@ class InventoryAPI:
   if action in ('excel','pdf'):
    state=inv.state(w,actor);costs=actor['role'] in APPROVERS;rows=[['SKU','DESCRIPCION','UNIDAD_ENTREGA','FISICO']+(['COSTO_UNITARIO_SIN_IMPUESTO','VALOR'] if costs else [])]+[[r['sku'],r['nombre'],r['unidad'],'PENDIENTE DE CONTEO' if r['cantidad'] is None else r['cantidad']]+([r['costo'],r['valor']] if costs else []) for r in state['existencias']]
    if costs:rows.append(['GRAN TOTAL CONTADO','','','','',state['valorTotal']])
-   return (report_xlsx(rows,'EXISTENCIAS'),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') if action=='excel' else (report_pdf(rows,'ERP JM Lite · Inventario '+state['almacen']['sucursal'],subtitle='Existencias físicas en unidad de entrega.'),'application/pdf')
+   return (report_xlsx(rows,'EXISTENCIAS'),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') if action=='excel' else (report_pdf(rows,'ERP JM Lite · Inventario '+state['almacen']['nombre']+' / '+state['almacen']['sucursal'],subtitle='Existencias físicas en unidad de entrega.'),'application/pdf')
   if action in ('kardex/resumen/excel','kardex/resumen/pdf'):
-   result=inv.kardex(w,q,actor,True);costs=actor['role'] in APPROVERS;rows=[['ALMACEN','RAZON_SOCIAL','SKU','DESCRIPCION','UNIDAD_ENTREGA','INICIAL_PERIODO','ENTRADAS','SALIDAS','EXISTENCIA_AL_CORTE','EXISTENCIA_ACTUAL']+(['COSTO_UNITARIO','VALOR'] if costs else [])]+[[r['sucursal'],r['razonSocial'],r['sku'],r['nombre'],r['unidad'],r['saldoInicial'] if r['saldoInicial'] is not None else 'PENDIENTE',r['entradas'],r['salidas'],r['saldoFinal'] if r['saldoFinal'] is not None else 'PENDIENTE',r['existenciaActual'] if r['existenciaActual'] is not None else 'PENDIENTE']+([r.get('costoUnitarioActual'),r.get('valorExistenciaActual')] if costs else []) for r in result['resumenPorSku']]
+   result=inv.kardex(w,q,actor,True);costs=actor['role'] in APPROVERS;rows=[['ALMACEN','RAZON_SOCIAL','SKU','DESCRIPCION','UNIDAD_ENTREGA','INICIAL_PERIODO','ENTRADAS','SALIDAS','EXISTENCIA_AL_CORTE','EXISTENCIA_ACTUAL']+(['COSTO_UNITARIO','VALOR'] if costs else [])]+[[r.get('nombreAlmacen',r['sucursal'])+' / '+r['sucursal'],r['razonSocial'],r['sku'],r['nombre'],r['unidad'],r['saldoInicial'] if r['saldoInicial'] is not None else 'PENDIENTE',r['entradas'],r['salidas'],r['saldoFinal'] if r['saldoFinal'] is not None else 'PENDIENTE',r['existenciaActual'] if r['existenciaActual'] is not None else 'PENDIENTE']+([r.get('costoUnitarioActual'),r.get('valorExistenciaActual')] if costs else []) for r in result['resumenPorSku']]
    return (report_xlsx(rows,'KARDEX_GENERAL'),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') if action.endswith('excel') else (report_pdf(rows,'ERP JM Lite · Kárdex general',subtitle='Inicial, entradas, salidas y existencias en unidad de entrega.'),'application/pdf')
   if action in ('movimientos/excel','kardex/excel'):
    result=inv.kardex(w,q,actor,True);costs=actor['role'] in APPROVERS;rows=[['FECHA','ALMACEN','RAZON_SOCIAL','TIPO','CONCEPTO','REFERENCIA','SKU','DESCRIPCION','UNIDAD','INICIAL','ENTRADA','SALIDA','SALDO_ANTERIOR','SALDO']+(['COSTO_UNITARIO','IMPORTE'] if costs else [])+['USUARIO','ENTREGA','RECIBE','OBSERVACIONES']]+[[display_date(r['fecha']),r['sucursal'],r['razonSocial'],r['tipo'],r.get('concepto',r['tipo']),r['referencia'],r['sku'],r['nombre'],r['unidad'],r['inicial'],r['entrada'],r['salida'],r['antes'],r['saldo']]+([r['costoUnitario'],r['importe']] if costs else [])+[r['actor'],r.get('entrega',''),r.get('recibe',''),r['observaciones']] for r in result['movimientos']]
@@ -82,6 +82,12 @@ class InventoryAPI:
   return self.inv.public(self._mutate(path,data,actor),actor)
  def _mutate(self,path,data,actor):
   inv=self.inv;inv.scope(actor);action=path.removeprefix('/api/inventarios/')
+  if action=='almacenes':
+   from almacenes_config import WarehouseConfiguration
+   return WarehouseConfiguration(inv).save(data,actor)
+  if action=='cuarentena/liberar':
+   from almacenes_config import WarehouseConfiguration
+   return WarehouseConfiguration(inv).release(data,actor)
   if action=='conteo':return inv.count(data,actor)
   if action=='autorizar':return inv.decide(data,actor)
   if action=='restablecer':return inv.reset(data,actor)

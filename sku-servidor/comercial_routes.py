@@ -71,7 +71,8 @@ class CommercialAPI:
   raise ValueError('Opción comercial no encontrada.')
  def mutate(self,path,data,actor):
   cm=self.cm;channel=data.get('canal','ventasins');cm.module(actor,channel);action=path.removeprefix('/api/comercial/')
-  if actor['role']=='ventaspasteleria' and action not in ('pedidos','pedidos/cancelacion/solicitar'):raise PermissionError('VENTASPASTELERIA solo puede agregar nuevos pedidos y presupuestos.')
+  if actor['role']=='ventaspasteleria' and action not in ('pedidos','presupuestos/convertir','pedidos/cancelacion/solicitar'):raise PermissionError('VENTASPASTELERIA solo puede agregar nuevos pedidos y presupuestos.')
+  if action=='presupuestos/convertir':return cm.convert_quote(data,actor)
   if action=='pedidos/cancelacion/solicitar':return cm.request_institutional_cancel(data,actor)
   if action=='pedidos/cancelacion/resolver':return cm.decide_institutional_cancel(data,actor)
   if action=='pedidos/bloqueo':return cm.toggle_order_lock(data,actor)

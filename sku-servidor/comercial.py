@@ -81,7 +81,7 @@ class CommercialStore:
  def action(self,actor,channel,action):
   self.module(actor,channel)
   if actor['role'] in ADMINS:return
-  default=(actor['role']=='ventaspasteleria' and channel=='ventasins' and action=='pedidos') or (actor['role']==channel and action in ('clientes','pedidos','caja','reportes')) or actor['role']=='gerente' and action in ('reportes','clientes')
+  default=(actor['role']=='ventas' and channel=='ventasins' and action in ('pedidos','reportes')) or (actor['role']=='ventaspasteleria' and channel=='ventasins' and action=='pedidos') or (actor['role']==channel and action in ('clientes','pedidos','caja','reportes')) or actor['role']=='gerente' and action in ('reportes','clientes')
   if not default and channel+'.'+action not in self.access(actor)['acciones'] and action not in self.access(actor)['acciones']:raise PermissionError('Tu perfil permite consulta; esta acción requiere un permiso adicional.')
  def admin(self,actor):
   if actor['role'] not in ADMINS:raise PermissionError('Solo AUXTI y Superadministrador administran razones sociales y configuración comercial.')
@@ -104,7 +104,7 @@ class CommercialStore:
   with self.store.connect() as db:
    companies=[{'id':id,'revision':rev,**json.loads(p)} for id,rev,p in db.execute('SELECT id,revision,payload FROM cm_companies ORDER BY id') if actor['role'] in ADMINS or id in access['empresas']]
    revision=db.execute('SELECT revision FROM cm_revision WHERE id=1').fetchone()[0]
-  return {'empresas':companies,'acceso':access,'sucursales':list(BRANCHES),'listas':{k:v for k,v in LISTS.items() if k not in ('RUTA','DESPACHO')},'iva':['0','8','16'],'revision':revision,'puedeConfigurar':actor['role'] in ADMINS,'puedeCancelarExpendios':actor['role'] in ADMINS,'puedeGestionarPlantillas':actor['role'] in ADMINS|{'gerente'},'puedeAutorizarCancelacionInstitucional':actor['role'] in ADMINS|{'gerente'},'soloCaptura':actor['role']=='ventaspasteleria','puedeDesbloquear':actor['role'] in {'ventasins','gerente','auxti','superadmin'},'puedeOperar':actor['role']=='ventaspasteleria' or actor['role'] in ADMINS or actor['role']==channel or channel+'.'+('caja' if channel=='expendios' else 'pedidos') in access['acciones'],'puedeImportar':actor['role'] in ADMINS or 'maestro' in access['acciones']}
+  return {'empresas':companies,'acceso':access,'sucursales':list(BRANCHES),'listas':{k:v for k,v in LISTS.items() if k not in ('RUTA','DESPACHO')},'iva':['0','8','16'],'revision':revision,'puedeConfigurar':actor['role'] in ADMINS,'puedeGestionarClientes':actor['role'] in ('superadmin','gerente'),'puedeCancelarExpendios':actor['role'] in ADMINS,'puedeGestionarPlantillas':actor['role'] in ADMINS|{'gerente'},'puedeAutorizarCancelacionInstitucional':actor['role'] in ADMINS|{'gerente'},'soloCaptura':actor['role']=='ventaspasteleria','puedeDesbloquear':actor['role'] in {'ventas','ventasins','gerente','auxti','superadmin'},'puedeOperar':actor['role']=='ventas' and channel=='ventasins' or actor['role']=='ventaspasteleria' or actor['role'] in ADMINS or actor['role']==channel or channel+'.'+('caja' if channel=='expendios' else 'pedidos') in access['acciones'],'puedeImportar':actor['role'] in ADMINS or 'maestro' in access['acciones']}
  def save_company(self,data,actor,remove=False,allow_empty=False):
   self.admin(actor);id=data.get('id');rev=data.get('revision',0)
   with self.store.connect() as db:
@@ -486,12 +486,39 @@ class CommercialStore:
    number=old['folio'] if old and kind==old['tipo'] else self.next_number(db,company,kind)
    value.update({'bloqueado':True if kind=='PEDIDO' and (not old or old['tipo']!='PEDIDO') else (old or {}).get('bloqueado',False),'tipo':kind,'folio':number,'presupuestoOrigen':old['folio'] if old and old['tipo']=='PRESUPUESTO' and kind=='PEDIDO' else (old or {}).get('presupuestoOrigen',''),'estado':'PEDIDO' if kind=='PEDIDO' else 'PRESUPUESTO','fecha':old['fecha'] if old else now(),'modificado':now(),'creador':old['creador'] if old else actor['email']})
    return self.persist(db,value,actor,'ventasins',key,hash,old)
+ def convert_quote(self,data,actor):
+  self.action(actor,'ventasins','pedidos')
+  if not isinstance(data.get('id'),str) or not re.fullmatch('[a-f0-9]{32}',data['id']):raise ValueError('Selecciona un presupuesto guardado.')
+  with self.store.connect() as db:
+   db.execute('BEGIN IMMEDIATE');quote=self.document(db,data.get('id'),actor,'ventasins')
+   if quote['tipo']!='PRESUPUESTO' or quote['estado']=='CANCELADO':raise ValueError('Selecciona un presupuesto vigente.')
+   if quote.get('pedidoDestino'):
+    return {'ok':True,'repetido':True,'documento':self.document(db,quote['pedidoDestino'],actor,'ventasins'),'presupuesto':quote}
+   if type(data.get('revision')) is not int or data['revision']!=quote['revision']:raise Conflict('El presupuesto cambió. Actualiza antes de convertirlo.')
+   if quote.get('vigencia') and quote['vigencia']<now()[:10]:raise ValueError('El presupuesto venció. Actualiza su vigencia antes de convertirlo.')
+   company=self.company(quote['empresa'],actor,True,db);self.branch(company,quote['sucursal'],actor)
+   if db.execute("SELECT 1 FROM cm_cancellations WHERE document=? AND state='PENDIENTE'",(quote['id'],)).fetchone():raise ValueError('Resuelve primero la solicitud de cancelación del presupuesto.')
+   customer=(quote.get('cliente') or {}).get('id')
+   if customer:
+    row=db.execute('SELECT payload FROM cm_customers WHERE id=? AND company=?',(customer,quote['empresa'])).fetchone()
+    if not row or not json.loads(row[0]).get('activo'):raise ValueError('El cliente del presupuesto ya no está activo.')
+   for line in quote['partidas']:
+    row=db.execute('SELECT payload FROM cm_products WHERE sku=?',(line['sku'],)).fetchone();product=json.loads(row[0]) if row else {}
+    if not product.get('activo') or product.get('unidad')!=line['unidad']:raise ValueError('Revisa el producto y su unidad antes de convertir: '+line['sku'])
+   value={k:copy.deepcopy(v) for k,v in quote.items() if k not in ('id','revision','cancelacion','bloqueo')}
+   value.update({'tipo':'PEDIDO','estado':'PEDIDO','folio':self.next_number(db,quote['empresa'],'PEDIDO'),'fecha':now(),'fechaPedido':now()[:10],'modificado':now(),'creador':actor['email'],'bloqueado':True,'presupuestoOrigen':quote['folio'],'presupuestoId':quote['id']})
+   result=self.persist(db,value,actor,'ventasins','conversion_'+quote['id'],fingerprint({'presupuesto':quote['id'],'revision':quote['revision']}))
+   accepted={**quote,'estado':'ACEPTADO','bloqueado':True,'pedidoDestino':result['documento']['id'],'pedidoFolio':result['documento']['folio'],'aceptacion':{'actor':actor['email'],'fecha':now()}}
+   result['presupuesto']=self.persist(db,accepted,actor,'ventasins','','',quote)['documento']
+   self.audit(db,actor,quote['empresa'],'presupuesto_convertido',{'presupuesto':quote['id'],'pedido':result['documento']['id']})
+   return result
  def toggle_order_lock(self,data,actor):
   self.module(actor,'ventasins')
-  if actor['role'] not in {'ventasins','gerente','auxti','superadmin'}:raise PermissionError('Tu perfil no puede bloquear o desbloquear pedidos.')
+  if actor['role'] not in {'ventas','ventasins','gerente','auxti','superadmin'}:raise PermissionError('Tu perfil no puede bloquear o desbloquear pedidos.')
   with self.store.connect() as db:
    db.execute('BEGIN IMMEDIATE');doc=self.document(db,data.get('id'),actor,'ventasins')
    if doc['revision']!=data.get('revision'):raise Conflict('El documento cambió. Actualiza.')
+   if doc.get('pedidoDestino'):raise ValueError('El presupuesto aceptado conserva su historial. Abre el pedido relacionado.')
    if doc['estado']=='CANCELADO' or type(data.get('bloqueado')) is not bool:raise ValueError('No se puede cambiar el bloqueo de este documento.')
    before=copy.deepcopy(doc);doc['bloqueado']=data['bloqueado'];doc['bloqueo']={'actor':actor['email'],'fecha':now(),'bloqueado':doc['bloqueado']};self.audit(db,actor,doc['empresa'],'bloqueo_pedido',{'id':doc['id'],'bloqueado':doc['bloqueado']});return self.persist(db,doc,actor,'ventasins','','',before)
  def cancel_order(self,data,actor):
@@ -575,6 +602,7 @@ class CommercialStore:
   with self.store.connect() as db:
    db.execute('BEGIN IMMEDIATE');doc=self.document(db,data.get('id'),actor,'ventasins')
    if doc['estado']=='CANCELADO':raise ValueError('El documento ya está cancelado.')
+   if doc.get('pedidoDestino'):raise ValueError('El presupuesto ya originó un pedido. Gestiona la cancelación desde el pedido relacionado.')
    if doc['revision']!=data.get('revision'):raise Conflict('El documento cambió. Actualiza antes de solicitar.')
    old=db.execute("SELECT id,revision,payload FROM cm_cancellations WHERE document=? AND state='PENDIENTE'",(doc['id'],)).fetchone()
    if old:return {'ok':True,'repetido':True,'solicitud':{'id':old[0],'revision':old[1],'estado':'PENDIENTE',**json.loads(old[2])}}

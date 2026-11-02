@@ -17,6 +17,14 @@ class GeneralRestore:
   if not is_internal_admin(actor):raise PermissionError('Solo Sistemas puede restaurar o descargar copias generales previas.')
  def schema(self,db):
   return db.execute("SELECT type,name,tbl_name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name").fetchall()
+ def upgrade_warehouse_schema(self,path,incoming,current):
+  from almacenes_config import LEGACY_SCHEMA,migrate
+  # Única diferencia admitida: la definición exacta anterior del almacén.
+  # Se adapta sólo la copia temporal, después de verificar el hash del ZIP.
+  old=self.schema(incoming);new=self.schema(current)
+  if [r for r in old if r[1]!='inv_warehouses']!=[r for r in new if r[1]!='inv_warehouses']:return
+  if next((r[3] for r in old if r[1]=='inv_warehouses'),None)!=LEGACY_SCHEMA:return
+  with contextlib.closing(sqlite3.connect(path)) as staged:migrate(staged)
  def summary(self,db):
   tables={'Empresas':'cm_companies','Sucursales':'app_branches','SKU de compra':'req_materials','Pedidos de compra':'po_orders','Documentos comerciales':'cm_documents','Movimientos de almacén':'inv_ledger','Registros de Calidad':'q_items','Archivos de Calidad':'q_files','Usuarios':'users'}
   return {label:db.execute('SELECT count(*) FROM '+table).fetchone()[0] for label,table in tables.items()}
@@ -47,6 +55,7 @@ class GeneralRestore:
     target=root/'database.sqlite3'
     with contextlib.closing(sqlite3.connect(target.as_uri()+'?mode=ro',uri=True)) as incoming,self.store.connect() as current:
      if incoming.execute('PRAGMA integrity_check').fetchone()[0]!='ok':raise ValueError('La base del respaldo no supera la revisión de integridad.')
+     if self.schema(incoming)!=self.schema(current):self.upgrade_warehouse_schema(target,incoming,current)
      if self.schema(incoming)!=self.schema(current):raise ValueError('La estructura del respaldo no coincide con esta instalación. Usa la misma versión del programa.')
      row=incoming.execute('SELECT role,active,salt,password_hash FROM users WHERE email=?',(ADMIN_EMAIL,)).fetchone()
      if not row or row[:2]!=('superadmin',1) or not re.fullmatch('[0-9a-f]{32}',str(row[2])) or not re.fullmatch('[0-9a-f]{64}',str(row[3])) or not incoming.execute('SELECT 1 FROM app_internal_admins WHERE email=?',(ADMIN_EMAIL,)).fetchone():raise ValueError('El respaldo no contiene la cuenta interna de recuperación válida.')

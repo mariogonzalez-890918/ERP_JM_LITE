@@ -90,4 +90,23 @@ class GeneralRestoreTests(unittest.TestCase):
   status,review=self.upload(raw);self.assertEqual(status,200,review);self.assertEqual(self.confirm(review)[0],200);self.assertEqual(json.loads(verifier.read_text()),original)
   c.password=old_password;c.admin=c.login(server.ADMIN_EMAIL)
 
+
+ def test_legacy_single_warehouse_backup_is_upgraded_only_in_staging(self):
+  from almacenes_config import LEGACY_SCHEMA
+  raw=self.snapshot()
+  with zipfile.ZipFile(io.BytesIO(raw)) as source:files={name:source.read(name) for name in source.namelist()}
+  with tempfile.TemporaryDirectory() as folder:
+   path=pathlib.Path(folder)/'legacy.sqlite3';path.write_bytes(files['data/sku.sqlite3'])
+   with contextlib.closing(sqlite3.connect(path)) as db:
+    rows=db.execute('SELECT * FROM inv_warehouses').fetchall();db.execute('DROP TABLE inv_warehouses');db.execute(LEGACY_SCHEMA);db.executemany('INSERT INTO inv_warehouses VALUES(?,?,?,?,?,?)',rows);db.commit()
+   files['data/sku.sqlite3']=path.read_bytes()
+  manifest=json.loads(files['manifest.json']);manifest['archivos']['data/sku.sqlite3']=hashlib.sha256(files['data/sku.sqlite3']).hexdigest();files['manifest.json']=json.dumps(manifest).encode()
+  out=io.BytesIO()
+  with zipfile.ZipFile(out,'w',zipfile.ZIP_DEFLATED) as target:
+   for name,value in files.items():target.writestr(name,value)
+  c=self.c;new=c.value('/api/inventarios/almacenes',{'empresa':c.company,'sucursal':'CENTRAL','nombre':'Almacén posterior al respaldo','funcion':'PT'})['almacen'];status,review=self.upload(out.getvalue());self.assertEqual(status,200,review)
+  self.assertIn(new['id'],[w['id'] for w in c.value('/api/inventarios/meta')['almacenes']])
+  self.assertEqual(self.confirm(review)[0],200);c.admin=c.login('mario.gonzalez@jad-ayt.com')
+  restored=c.value('/api/inventarios/almacenes',{'empresa':c.company,'sucursal':'CENTRAL','nombre':'Almacén tras restauración','funcion':'PT'})['almacen'];self.assertNotEqual(restored['id'],str(c.company)+':CENTRAL')
+
 if __name__=='__main__':unittest.main()

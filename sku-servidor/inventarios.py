@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS inv_transfers(id TEXT PRIMARY KEY,source TEXT NOT NUL
 CREATE TABLE IF NOT EXISTS inv_keys(key TEXT PRIMARY KEY,hash TEXT NOT NULL,payload TEXT NOT NULL);
 CREATE TRIGGER IF NOT EXISTS inv_ledger_no_update BEFORE UPDATE ON inv_ledger BEGIN SELECT RAISE(ABORT,'El diario de inventario es inmutable'); END;
 CREATE TRIGGER IF NOT EXISTS inv_ledger_no_delete BEFORE DELETE ON inv_ledger BEGIN SELECT RAISE(ABORT,'El diario de inventario es inmutable'); END;''')
+   from almacenes_config import migrate
+   migrate(db)
    marker='inventarios-v31'
    db.execute('CREATE TABLE IF NOT EXISTS inv_features(id TEXT PRIMARY KEY)')
    if not db.execute('SELECT 1 FROM inv_features WHERE id=?',(marker,)).fetchone():
@@ -57,7 +59,8 @@ CREATE TRIGGER IF NOT EXISTS inv_ledger_no_delete BEFORE DELETE ON inv_ledger BE
   co=db.execute('SELECT payload FROM cm_companies WHERE id=?',(row[0],)).fetchone()
   if not co or row[1] not in json.loads(co[0]).get('sucursales',[]):raise ValueError('Vincula el destino a una razón social en Configuración comercial → Razones sociales.')
   if require_active and not row[2]:raise ValueError('Antes de enviar, autoriza el inventario inicial del almacén destino.')
-  return {'id':id,'empresa':row[0],'sucursal':row[1]}
+  from almacenes_config import details
+  return {'id':id,'empresa':row[0],'sucursal':row[1],**details(db,id,row[1])}
  def scope(self,actor,warehouse=None,db=None,write=False):
   require_module(actor,'inventarios')
   if actor['role'] not in OPERATORS:raise PermissionError('Este perfil no puede consultar costos ni operar inventarios.')
@@ -70,7 +73,8 @@ CREATE TRIGGER IF NOT EXISTS inv_ledger_no_delete BEFORE DELETE ON inv_ledger BE
   if actor['role'] not in {'superadmin','auxti'} and (row[0] not in access['empresas'] or row[1] not in access['sucursales'] or row[1] not in visible_branches(actor)):raise PermissionError('Almacén o razón social no asignados a tu cuenta.')
   co=db.execute('SELECT payload FROM cm_companies WHERE id=?',(row[0],)).fetchone()
   if write and (not co or row[1] not in json.loads(co[0]).get('sucursales',[])):raise Conflict('La sucursal ya no está vinculada a esta razón social.')
-  return {'id':warehouse,'empresa':row[0],'sucursal':row[1],'ciclo':row[2],'activo':bool(row[3]),'revision':row[4]}
+  from almacenes_config import details
+  return {'id':warehouse,'empresa':row[0],'sucursal':row[1],'ciclo':row[2],'activo':bool(row[3]),'revision':row[4],**details(db,warehouse,row[1])}
  def warehouses(self,actor):
   self.scope(actor)
   with self.store.connect() as db:
@@ -79,8 +83,9 @@ CREATE TRIGGER IF NOT EXISTS inv_ledger_no_delete BEFORE DELETE ON inv_ledger BE
     try:w=self.scope(actor,id,db)
     except PermissionError:continue
     result.append({**w,'razonSocial':companies.get(w['empresa'],'')})
-   destinations=[{'id':i,'sucursal':b,'razonSocial':companies.get(c,''),'activo':bool(a)} for i,c,b,a in db.execute('SELECT id,company,branch,active FROM inv_warehouses') if c in companies]
-  return {'almacenes':result,'destinos':destinations,'puedeAutorizar':actor['role'] in APPROVERS,'puedeRestablecer':actor['role']=='superadmin'}
+   from almacenes_config import details,FUNCTIONS
+   destinations=[{'id':i,'empresa':c,'sucursal':b,'razonSocial':companies.get(c,''),'activo':bool(a),**details(db,i,b)} for i,c,b,a in db.execute('SELECT id,company,branch,active FROM inv_warehouses') if c in companies]
+  return {'almacenes':result,'destinos':destinations,'funciones':FUNCTIONS,'puedeConfigurarAlmacenes':actor['role'] in ('superadmin','gerente'),'puedeAutorizar':actor['role'] in APPROVERS,'puedeRestablecer':actor['role']=='superadmin'}
  def materials(self):
   # Catálogo central, no depende del acceso del actor a la pantalla de Compras.
   mods=['pedidoscompra']
@@ -98,6 +103,8 @@ CREATE TRIGGER IF NOT EXISTS inv_ledger_no_delete BEFORE DELETE ON inv_ledger BE
   return {'unidad':row[0],'cantidad':row[1],'costo':row[2],**json.loads(row[3])} if row else None
  def post(self,db,w,m,delta,cost,source,kind,actor,reference='',notes='',extra=None,allow_negative=False):
   m={**m,'sku':str(m['sku']).strip().upper()}
+  from almacenes_config import details
+  if delta<0 and details(db,w,'')['funcion']=='CUARENTENA' and kind not in ('CALIDAD_LIBERACION','CALIDAD_RECHAZO','RESTABLECER'):raise ValueError('El almacén está en cuarentena. Registra primero una liberación de Calidad autorizada.')
   if db.execute('SELECT 1 FROM inv_ledger WHERE source=?',(source,)).fetchone():raise Conflict('Este movimiento ya fue aplicado.')
   old=self.balance(db,w,m['sku']);q=Decimal(old['cantidad']) if old else Decimal(0);avg=Decimal(old['costo']) if old else Decimal(0)
   if old and norm(old['unidad'])!=norm(m['unidad']):raise Conflict('La unidad del maestro cambió. Resuelve la equivalencia antes de mover '+m['sku']+'.')
@@ -140,7 +147,7 @@ CREATE TRIGGER IF NOT EXISTS inv_ledger_no_delete BEFORE DELETE ON inv_ledger BE
   if direction not in ('','ENTRADAS','SALIDAS'):raise ValueError('Selecciona todas, entradas o salidas.')
   state=self.state(w,actor);limit=50000 if export else 1000;rows=deque(maxlen=limit);matched=0;summaries={};cutoff={};seen=set();info=state['almacen']
   with self.store.connect() as db:
-   company=json.loads(db.execute('SELECT payload FROM cm_companies WHERE id=?',(info['empresa'],)).fetchone()[0]);location={'almacen':w,'sucursal':info['sucursal'],'razonSocial':company.get('nombre',''),'empresa':info['empresa']};clauses='warehouse=?'+(' AND upper(sku)=?' if sku else '');params=(w,sku) if sku else (w,)
+   company=json.loads(db.execute('SELECT payload FROM cm_companies WHERE id=?',(info['empresa'],)).fetchone()[0]);location={'almacen':w,'nombreAlmacen':info['nombre'],'sucursal':info['sucursal'],'razonSocial':company.get('nombre',''),'empresa':info['empresa']};clauses='warehouse=?'+(' AND upper(sku)=?' if sku else '');params=(w,sku) if sku else (w,)
    for id,payload in db.execute('SELECT id,payload FROM inv_ledger WHERE '+clauses+' ORDER BY id',params):
     r=json.loads(payload);r['concepto']=r.get('concepto') or SYSTEM_CONCEPTS.get(r['tipo'],r['tipo']);identity=r['sku'].upper();q=Decimal(r['cantidad']);date=r['fecha'][:10];initial=r['tipo']=='INICIAL' and identity not in seen;seen.add(identity)
     if until and date>until:continue
@@ -167,13 +174,16 @@ CREATE TRIGGER IF NOT EXISTS inv_ledger_no_delete BEFORE DELETE ON inv_ledger BE
    for id,payload,order_payload in records:
     move=json.loads(payload);order=json.loads(order_payload);date=move['creado'][:10]
     if since and date<since or until and date>until:continue
-    posted=bool(db.execute('SELECT 1 FROM inv_ledger WHERE source LIKE ? LIMIT 1',('compra:'+id+':%',)).fetchone())
+    locations={r[0] for r in db.execute('SELECT DISTINCT warehouse FROM inv_ledger WHERE source LIKE ?',('compra:'+id+':%',))}
+    if locations and w not in locations or not locations and w!=str(info['empresa'])+':'+info['sucursal']:continue
+    posted=w in locations
     for line in move['partidas']:
      if sku and line['sku'].upper()!=sku:continue
      returned=sum((Decimal(l['cantidad']) for d in move.get('devoluciones',[]) for l in d['partidas'] if l['linea']==line['linea']),Decimal(0));returned_delivery=sum((Decimal(l['cantidadEntrega']) for d in move.get('devoluciones',[]) for l in d['partidas'] if l['linea']==line['linea']),Decimal(0));cancelled=sum((Decimal(l['cantidad']) for c in move.get('cancelacionesParciales',[]) for l in c['partidas'] if l['linea']==line['linea']),Decimal(0));cancelled_delivery=sum((Decimal(l['cantidadEntrega']) for c in move.get('cancelacionesParciales',[]) for l in c['partidas'] if l['linea']==line['linea']),Decimal(0));qty=Decimal(line['cantidadEntrega']);cancelled=Decimal(line['cantidad']) if move.get('cancelacion') and not move.get('cancelacionesParciales') else cancelled;cancelled_delivery=qty if move.get('cancelacion') and not move.get('cancelacionesParciales') else cancelled_delivery;result.append({'id':id,'linea':line['linea'],'cantidadDevuelta':fmt(returned),'cantidadDevueltaEntrega':fmt(returned_delivery),'cantidadCancelada':fmt(cancelled),'cantidadCanceladaEntrega':fmt(cancelled_delivery),'cantidadNetaEntrega':fmt(qty-returned_delivery-cancelled_delivery),'pendienteDevolver':fmt(Decimal(line['cantidad'])-returned-cancelled),'devoluciones':[{k:d[k] for k in ('folio','fecha','actor','solicitadoPor','observaciones')} for d in move.get('devoluciones',[])],'pedido':order['folio'],'recepcion':move['folio'],'fecha':move['creado'],'proveedor':order['proveedor']['nombre'],'sku':line['sku'],'nombre':line['nombre'],'cantidadRecibida':line['cantidad'],'unidadCompra':line['unidad'],'cantidadEntrega':line['cantidadEntrega'],'unidadEntrega':line['unidadEntrega'],'materialId':line['materialId'],'registradoEnInventario':posted,'cancelada':bool(move.get('cancelacion')),'cancelacion':move.get('cancelacion'),'recibio':move['actor'],'costoUnitario':fmt(Decimal(next(p for p in order['partidas'] if p['linea']==line['linea'])['precio'])/Decimal(next(p for p in order['partidas'] if p['linea']==line['linea'])['factorEntrega']))})
   return {'recepciones':result}
  def pending_receipts(self,w,actor):
   info=self.scope(actor,w);result=[]
+  if w!=str(info['empresa'])+':'+info['sucursal']:return {'pedidos':[]}
   with self.store.connect() as db:
    for id,payload in db.execute("SELECT id,payload FROM po_orders WHERE company=? AND branch=? AND state IN ('PEDIDO','RECEPCION_PARCIAL','RECIBIDO') ORDER BY rowid DESC",(info['empresa'],info['sucursal'])):
     doc=json.loads(payload);lines=[{'sku':l['sku'],'nombre':l['nombre'],'pedido':l['cantidad'],'recibido':l['recibido'],'pendiente':fmt(Decimal(l['cantidad'])-Decimal(l['recibido'])),'unidad':l['unidad']} for l in doc['partidas'] if Decimal(l['cantidad'])>Decimal(l['recibido'])]
@@ -291,7 +301,7 @@ CREATE TRIGGER IF NOT EXISTS inv_ledger_no_delete BEFORE DELETE ON inv_ledger BE
    db.execute('BEGIN IMMEDIATE');repeat=self.repeat(db,data)
    if repeat:return repeat
    if action=='solicitar':
-    source=data.get('origen');dest=data.get('destino');self.scope(actor,source,db,True);target=self.destination(db,dest,False)
+    source=data.get('origen');dest=data.get('destino');origin=self.scope(actor,source,db,True);target=self.destination(db,dest,False)
     if source==dest:raise ValueError('Selecciona almacenes diferentes.')
     reason=text(data.get('motivo',''),2000);lines=data.get('partidas');prepared=[];seen=set()
     if not reason or not isinstance(lines,list) or not 1<=len(lines)<=200:raise ValueError('Indica motivo y partidas.')
@@ -299,7 +309,7 @@ CREATE TRIGGER IF NOT EXISTS inv_ledger_no_delete BEFORE DELETE ON inv_ledger BE
      m=materials.get(str(line.get('sku','')).upper())
      if not m or m['sku'] in seen:raise ValueError('SKU inválido o repetido.')
      seen.add(m['sku']);prepared.append({k:m[k] for k in ('sku','nombre','unidad','materialId')}|{'cantidad':fmt(dec(line.get('cantidad'),True)),'recibido':'0'})
-    id=uuid.uuid4().hex;num=db.execute('SELECT COUNT(*)+1 FROM inv_transfers').fetchone()[0];doc={'id':id,'folio':'TRA-'+str(num).zfill(6),'origen':source,'destino':dest,'estado':'SOLICITADA','revision':1,'fecha':now(),'solicitadoPor':actor['email'],'motivo':reason,'partidas':prepared,'intercompania':source.split(':')[0]!=dest.split(':')[0]}
+    id=uuid.uuid4().hex;num=db.execute('SELECT COUNT(*)+1 FROM inv_transfers').fetchone()[0];doc={'id':id,'folio':'TRA-'+str(num).zfill(6),'origen':source,'destino':dest,'estado':'SOLICITADA','revision':1,'fecha':now(),'solicitadoPor':actor['email'],'motivo':reason,'partidas':prepared,'intercompania':origin['empresa']!=target['empresa']}
     db.execute('INSERT INTO inv_transfers VALUES(?,?,?,?,?)',(id,source,dest,doc['estado'],dumps(doc)))
    else:
     row=db.execute('SELECT payload FROM inv_transfers WHERE id=?',(data.get('id'),)).fetchone()

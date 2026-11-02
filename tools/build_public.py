@@ -19,7 +19,11 @@ integrados en el EXE y Microsoft Visual C++ x64 firmado por Microsoft.
 No necesitas instalar Python, Node, Office ni SQLite en los equipos cliente.
 Se instala el programa en Program Files y los datos en ProgramData\\ERP JM Lite.
 La tarea ERP-JM-Lite arranca el servidor al encender Windows.
-Para detenerlo, en PowerShell como administrador:
+Para detenerlo, usa "Detener servicio" en el menu Inicio > ERP JM Lite
+o en la carpeta de instalacion. "Iniciar servicio" lo vuelve a arrancar.
+Windows pide permisos de administrador. Detener no borra los datos ni
+deshabilita el arranque automatico al reiniciar Windows.
+Tambien puedes usar PowerShell como administrador:
    Stop-ScheduledTask -TaskName "ERP-JM-Lite"
 Para iniciarlo otra vez:
    Start-ScheduledTask -TaskName "ERP-JM-Lite"
@@ -60,9 +64,9 @@ def main():
   subprocess.run([sys.executable,'-m','PyInstaller','--noconfirm','sku/ERP_JM_Lite.spec','--distpath',str(target),'--workpath',str(clean/'build')],cwd=clean,check=True)
  shutil.copy2(args.vc_redist,target/'VC_redist.x64.exe')
  
- for script in ('install_windows.ps1','verify_windows.ps1'):shutil.copy2(ROOT/'tools'/script,target/script)
+ for script in ('install_windows.ps1','verify_windows.ps1','control_windows.ps1'):shutil.copy2(ROOT/'tools'/script,target/script)
  (target/'LEEME.txt').write_text(GUIDE,encoding='utf8')
- names=('ERP_JM_Lite.exe','VC_redist.x64.exe','install_windows.ps1','verify_windows.ps1','LEEME.txt')
+ names=('ERP_JM_Lite.exe','VC_redist.x64.exe','install_windows.ps1','verify_windows.ps1','control_windows.ps1','LEEME.txt')
  manifest={'product':'ERP JM Lite','version':'0.1.0-dev','profile':'windows-modern-x64','certified':False,'python':sys.version.split()[0],'files':{name:hashlib.sha256((target/name).read_bytes()).hexdigest() for name in names}}
  (target/'manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf8')
  archive_path=target.parent/'ERP_JM_Lite_Windows_Piloto.zip'

@@ -41,6 +41,7 @@
 /tools/*
 !/tools/inicializar.py
 !/tools/build_public.py
+!/tools/control_windows.ps1
 !/tools/build_sat_catalogs.py
 !/tools/install_windows.ps1
 !/tools/create_windows_lab.ps1

@@ -43,6 +43,7 @@ $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::An
 try { $listener.Start() } catch { throw "El puerto $Port esta ocupado o no esta disponible. Libera el puerto y vuelve a instalar. No se utilizara otro puerto." } finally { $listener.Stop() }
 $exe = Join-Path $InstallDir 'ERP_JM_Lite.exe'
 Copy-Item -LiteralPath $source -Destination $exe -Force
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'control_windows.ps1') -Destination (Join-Path $InstallDir 'control_windows.ps1') -Force
 $config | ConvertTo-Json | Set-Content -LiteralPath $configPath -Encoding UTF8
 # El primer inicio pide la clave de Mario de forma oculta; nunca va en argumentos.
 if ($AdminSeed) { & $exe --config $configPath --initialize --admin-seed $AdminSeed }
@@ -57,6 +58,24 @@ $trigger = New-ScheduledTaskTrigger -AtStartup
 $settings = New-ScheduledTaskSettingsSet -RestartCount 5 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -StartWhenAvailable -MultipleInstances IgnoreNew
 $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccount -RunLevel Highest
 Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force | Out-Null
+# Accesos de control tanto junto al programa como en Inicio para todos los usuarios.
+$menuDir = Join-Path ([Environment]::GetFolderPath('CommonPrograms')) 'ERP JM Lite'
+New-Item -ItemType Directory -Path $menuDir -Force | Out-Null
+$shortcutShell = New-Object -ComObject WScript.Shell
+foreach ($folder in @($InstallDir,$menuDir)) {
+    foreach ($control in @(@('Detener servicio','Stop'),@('Iniciar servicio','Start'))) {
+        $shortcut = $shortcutShell.CreateShortcut((Join-Path $folder ($control[0]+'.lnk')))
+        $shortcut.TargetPath = Join-Path $PSHOME 'powershell.exe'
+        $shortcut.Arguments = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "'+(Join-Path $InstallDir 'control_windows.ps1')+'" -Action '+$control[1]
+        $shortcut.WorkingDirectory = $InstallDir
+        $shortcut.Description = $control[0]+' - ERP JM Lite (requiere administrador)'
+        $shortcut.WindowStyle = 7
+        $shortcut.Save()
+    }
+    $webShortcut = $shortcutShell.CreateShortcut((Join-Path $folder 'Abrir ERP JM Lite.url'))
+    $webShortcut.TargetPath = 'http://127.0.0.1:8098/'
+    $webShortcut.Save()
+}
 if ($OpenFirewall) {
     Get-NetFirewallRule -Name 'ERP-JM-Lite-Web' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
     New-NetFirewallRule -Name 'ERP-JM-Lite-Web' -DisplayName 'ERP JM Lite Web' -Direction Inbound -Action Allow -Protocol TCP -LocalPort $Port -Program $exe -Profile Any -RemoteAddress Any | Out-Null

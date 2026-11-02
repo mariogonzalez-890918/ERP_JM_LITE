@@ -10,9 +10,10 @@ $('rpCostosPanel').ontoggle=null;$('rpCostosPanel').classList.add('jm-flat-panel
 $('jmReportBuilder').open=true;$('jmReportBuilder').classList.add('jm-flat-panel');
 for(const id of ['rpNuevo','rpCopia']){const old=$(id).onclick;$(id).onclick=async e=>{await old(e);jmNavigate('reportes','configurar');};}
 const jmShowReport=rpShow;rpShow=function(result){jmShowReport(result);jmNavigate('reportes','consulta');};
-const backupPage=$('jmBackupsPage'),backupCards=[...backupPage.querySelectorAll('.jm-backup-card')],backupShared=document.createElement('div');backupShared.className='jm-catalog-toolbar';backupShared.append($('bkModulo').closest('label'),$('bkMensaje'),$('bkPrevio'));backupPage.querySelector('.jm-page-intro').after(backupShared);jmSubviewHeading(backupPage,'Administrar datos');jmTabs(backupPage,'respaldos',[
- ['descargar','Descargar respaldo',[backupCards[0]]],['restaurar','Restaurar respaldo',[backupCards[1]]],['reiniciar','Vaciar módulo',[backupCards[2]]]
-],'descargar');
+const backupPage=$('jmBackupsPage'),backupCards=[...backupPage.querySelectorAll('.jm-backup-card:not(#bkGeneralCard)')],backupShared=document.createElement('div');backupShared.className='jm-catalog-toolbar';backupShared.append($('bkModulo').closest('label'),$('bkMensaje'),$('bkPrevio'));backupPage.querySelector('.jm-page-intro').after(backupShared);jmSubviewHeading(backupPage,'Administrar datos');jmTabs(backupPage,'respaldos',[
+ ['general','Respaldo general',[$('bkGeneralCard')],currentUser.internalAdmin===true],['descargar','Respaldo por módulo',[backupCards[0]]],['restaurar','Restaurar respaldo',[backupCards[1]]],['reiniciar','Vaciar módulo',[backupCards[2]]]
+],currentUser.internalAdmin?'general':'descargar');
+backupShared.hidden=currentUser.internalAdmin===true;const jmBackupSelect=jmSelect;jmSelect=function(key,id){jmBackupSelect(key,id);if(key==='respaldos')backupShared.hidden=id==='general';};
 const jmSubmenus={},jmSubButtons={};
 for(const [route,group] of Object.entries(jmSegments)){
  const parent=jmButtons[route];if(!parent||!jmAllowed[route])continue;

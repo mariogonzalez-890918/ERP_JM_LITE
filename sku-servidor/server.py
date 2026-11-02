@@ -401,6 +401,13 @@ def create_handler(store):
     except (ValueError,KeyError,TypeError) as e:return self.reply(400,{'error':str(e)})
    if path.startswith('/api/respaldos'):
     try:
+     if path=='/api/respaldos/general':
+      from respaldo_general import create
+      with create(store,actor) as (archive,name):
+       self.send_response(200);self.send_header('Content-Type','application/zip');self.send_header('Content-Length',str(archive.stat().st_size));self.send_header('Content-Disposition','attachment; filename="'+name+'"');self.send_header('Cache-Control','no-store');self.send_header('X-Content-Type-Options','nosniff');self.end_headers()
+       with archive.open('rb') as source:
+        while block:=source.read(1024*1024):self.wfile.write(block)
+      return
      previous=re.fullmatch('/api/respaldos/previo/([a-f0-9]{32})',path)
      if previous:return self.reply(200,backups.previous(previous[1],actor),'application/json; charset=utf-8')
      if path=='/api/respaldos':return self.reply(200,backups.create(parse_qs(urlsplit(self.path).query).get('modulo',[''])[0],actor))

@@ -19,3 +19,6 @@ $('bkVaciarConfirmar').onclick=async()=>{if(!bkVaciar||$('bkVaciarTexto').value!
 
 if(location.hash==='#compras/maestro'&&$('jmNotice')?.textContent)$('cpMasterPanel').open=true;
 
+
+$('bkGeneralCard').hidden=!currentUser.internalAdmin;
+$('bkGeneralDownload').onclick=async()=>{if(bkBusy)return;bkBusy=true;$('bkGeneralDownload').disabled=true;$('bkGeneralMessage').textContent='Generando copia completa y verificando su integridad…';try{const response=await fetch('/api/respaldos/general',{cache:'no-store'});if(!response.ok){const error=await response.json();throw Error(error.error||'No se pudo generar el respaldo general.');}const disposition=response.headers.get('Content-Disposition')||'',filename=disposition.match(/filename="([^"]+)"/)?.[1]||'ERP_JM_Respaldo_General.zip';download(await response.blob(),filename,'application/zip');$('bkGeneralMessage').textContent='Respaldo general descargado. Incluye todos los módulos y las instrucciones de recuperación.';}catch(e){$('bkGeneralMessage').textContent=e.message;}finally{bkBusy=false;$('bkGeneralDownload').disabled=false;}};

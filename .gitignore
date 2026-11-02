@@ -158,6 +158,7 @@
 !/tests/test_company_taxes.py
 !/tests/test_sku_ficha.py
 !/tests/test_sat_options.py
+!/tests/test_general_backup.py
 !/tests/test_crm_management.py
 !/tools/provision_activation.py
 !/sku-servidor/public/crm.html
@@ -170,3 +171,12 @@
 !/sku-servidor/public/security.js
 !/sku-servidor/public/theme.js
 !/docs/COMERCIALIZACION.md
+
+!/sku/newyear-art.svg
+!/sku-servidor/public/newyear-art.svg
+!/sku/autumn-art.svg
+!/sku-servidor/public/autumn-art.svg
+!/sku/spring-art.svg
+!/sku-servidor/public/spring-art.svg
+!/sku/muertos-art.svg
+!/sku-servidor/public/muertos-art.svg

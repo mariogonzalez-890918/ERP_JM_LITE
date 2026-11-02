@@ -96,9 +96,9 @@ for(const name of ['index.html','commercial.html','purchase.html','inventory.htm
 }
 
 await fs.copyFile('sku/theme-ui.js',dir+'/public/theme.js');
-const seasonalArtwork={};for(const season of ['halloween','navidad'])seasonalArtwork[season]='data:image/svg+xml;base64,'+(await fs.readFile('sku/'+season+'-art.svg')).toString('base64');
+const seasonalArtwork={};for(const season of ['halloween','navidad','newyear','autumn','spring','muertos'])seasonalArtwork[season]='data:image/svg+xml;base64,'+(await fs.readFile('sku/'+season+'-art.svg')).toString('base64');
 await fs.writeFile(dir+'/public/workspace-menu.js',(await fs.readFile('sku/workspace-menu.js','utf8')).replace('const seasonalArtwork={};','const seasonalArtwork='+JSON.stringify(seasonalArtwork)+';'));
-for(const artwork of ['halloween-art.svg','navidad-art.svg'])await fs.copyFile('sku/'+artwork,dir+'/public/'+artwork);
+for(const artwork of ['halloween-art.svg','navidad-art.svg','newyear-art.svg','autumn-art.svg','spring-art.svg','muertos-art.svg'])await fs.copyFile('sku/'+artwork,dir+'/public/'+artwork);
 await fs.appendFile(dir+'/public/app.js','\n'+await fs.readFile('sku/catalog-config-ui.js','utf8'));
 await fs.appendFile(dir+'/public/app.js','\n'+await fs.readFile('sku/sku-ficha-ui.js','utf8'));
 await fs.appendFile(dir+'/public/app.js','\n'+await fs.readFile('sku/product-options-ui.js','utf8'));

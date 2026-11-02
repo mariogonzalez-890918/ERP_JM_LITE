@@ -47,6 +47,10 @@ La automatización instala el paquete en la VM, registra una comprobación inici
 
 ## Interfaz
 
+Los temas incluyen New Year, Autumn, Spring y Calaveritas (calaveritas de azúcar, flores y papel picado), además de los estilos anteriores. El color amarillo se suma a azul, rosa, verde y morado. Las preferencias se mantienen al abrir módulos y se sincronizan entre pestañas del mismo servidor. Los temas nuevos se comprobaron en las doce rutas principales y se revisaron contrastes de texto, texto secundario y botones en claro/oscuro.
+
+En Respaldo y restauración → Respaldo general, Sistemas puede descargar un ZIP con una copia consistente de toda la base mediante SQLite Backup API, configuración portable, verificador privado si existe, manifiesto SHA256 e instrucciones. Incluye logos, usuarios, permisos, Calidad y evidencias. La copia excluye sesiones activas y no modifica las sesiones originales. No duplica EXE, runtime, registros ni respaldos anteriores. Las pruebas comprueban escrituras confirmadas en WAL, integridad, archivos BLOB y rechazo a otros perfiles.
+
 Identidad JM propia: navegación azul, formularios y tablas compactos, cabeceras de documentos y logotipo vectorial. No incorpora vistas ni código de Odoo, SAP, Oracle o Aspel. Se conserva la lógica y las rutas de los módulos existentes. Los identificadores internos heredados no son la marca del producto.
 
 Empresa y configuración permite subir, sustituir o quitar un logo PNG/JPG por razón social. Valida el contenido, limita el archivo a 2 MB y guarda una copia PNG normalizada en SQLite. Solo Superadministrador puede modificarlo; consultar un logo requiere acceso a su razón social.

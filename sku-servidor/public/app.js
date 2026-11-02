@@ -531,6 +531,9 @@ $('bkVaciarConfirmar').onclick=async()=>{if(!bkVaciar||$('bkVaciarTexto').value!
 if(location.hash==='#compras/maestro'&&$('jmNotice')?.textContent)$('cpMasterPanel').open=true;
 
 
+$('bkGeneralCard').hidden=!currentUser.internalAdmin;
+$('bkGeneralDownload').onclick=async()=>{if(bkBusy)return;bkBusy=true;$('bkGeneralDownload').disabled=true;$('bkGeneralMessage').textContent='Generando copia completa y verificando su integridad…';try{const response=await fetch('/api/respaldos/general',{cache:'no-store'});if(!response.ok){const error=await response.json();throw Error(error.error||'No se pudo generar el respaldo general.');}const disposition=response.headers.get('Content-Disposition')||'',filename=disposition.match(/filename="([^"]+)"/)?.[1]||'ERP_JM_Respaldo_General.zip';download(await response.blob(),filename,'application/zip');$('bkGeneralMessage').textContent='Respaldo general descargado. Incluye todos los módulos y las instrucciones de recuperación.';}catch(e){$('bkGeneralMessage').textContent=e.message;}finally{bkBusy=false;$('bkGeneralDownload').disabled=false;}};
+
 let rqImageMap=new Map(),rqImageBusy=false,rqImageLoading=null,rqImageDirect=false;
 const rqImageCards=document.createElement('div');rqImageCards.id='rqMaterialCards';rqImageCards.className='jm-material-cards';rqImageCards.setAttribute('aria-label','Resultados de materiales con imagen');$('rqEncontrados').after(rqImageCards);
 function rqPhoto(material){const image=document.createElement('img'),meta=rqImageMap.get(material.id);image.src=meta?'/api/requisiciones/imagenes/'+material.id+'?miniatura=1&v='+encodeURIComponent(meta.imagenId):'/logo.svg';image.alt=meta?'Imagen de '+material.nombre:'Logo JM · Sin imagen del producto';image.loading='lazy';image.width=112;image.height=82;image.className='jm-material-photo';image.onerror=()=>{image.onerror=null;image.src='/logo.svg';};return image;}
@@ -604,9 +607,10 @@ $('rpCostosPanel').ontoggle=null;$('rpCostosPanel').classList.add('jm-flat-panel
 $('jmReportBuilder').open=true;$('jmReportBuilder').classList.add('jm-flat-panel');
 for(const id of ['rpNuevo','rpCopia']){const old=$(id).onclick;$(id).onclick=async e=>{await old(e);jmNavigate('reportes','configurar');};}
 const jmShowReport=rpShow;rpShow=function(result){jmShowReport(result);jmNavigate('reportes','consulta');};
-const backupPage=$('jmBackupsPage'),backupCards=[...backupPage.querySelectorAll('.jm-backup-card')],backupShared=document.createElement('div');backupShared.className='jm-catalog-toolbar';backupShared.append($('bkModulo').closest('label'),$('bkMensaje'),$('bkPrevio'));backupPage.querySelector('.jm-page-intro').after(backupShared);jmSubviewHeading(backupPage,'Administrar datos');jmTabs(backupPage,'respaldos',[
- ['descargar','Descargar respaldo',[backupCards[0]]],['restaurar','Restaurar respaldo',[backupCards[1]]],['reiniciar','Vaciar módulo',[backupCards[2]]]
-],'descargar');
+const backupPage=$('jmBackupsPage'),backupCards=[...backupPage.querySelectorAll('.jm-backup-card:not(#bkGeneralCard)')],backupShared=document.createElement('div');backupShared.className='jm-catalog-toolbar';backupShared.append($('bkModulo').closest('label'),$('bkMensaje'),$('bkPrevio'));backupPage.querySelector('.jm-page-intro').after(backupShared);jmSubviewHeading(backupPage,'Administrar datos');jmTabs(backupPage,'respaldos',[
+ ['general','Respaldo general',[$('bkGeneralCard')],currentUser.internalAdmin===true],['descargar','Respaldo por módulo',[backupCards[0]]],['restaurar','Restaurar respaldo',[backupCards[1]]],['reiniciar','Vaciar módulo',[backupCards[2]]]
+],currentUser.internalAdmin?'general':'descargar');
+backupShared.hidden=currentUser.internalAdmin===true;const jmBackupSelect=jmSelect;jmSelect=function(key,id){jmBackupSelect(key,id);if(key==='respaldos')backupShared.hidden=id==='general';};
 const jmSubmenus={},jmSubButtons={};
 for(const [route,group] of Object.entries(jmSegments)){
  const parent=jmButtons[route];if(!parent||!jmAllowed[route])continue;

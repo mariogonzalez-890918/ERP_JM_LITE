@@ -41,7 +41,7 @@ class MaterialImageTests(unittest.TestCase):
  def test_access_control_and_csrf(self):
   self.upload([self.image(id=self.first['id'])])
   for role in ('visualizador','gerente','almacenista','compras','alta','auxti'):
-   email=role+'@example.com';self.case.value('/api/users',{'email':email,'name':role,'role':role,'active':True,'password':self.case.password,'almacenes':['EJIDOS'],'sucursales':['EJIDOS','SAN PABLO','CUAUTITLAN','EJE 8']});actor=self.case.login(email)
+   email=role+'@example.com';self.case.value('/api/users',{'email':email,'name':role,'role':role,'active':True,'password':self.case.password,'almacenes':['CENTRAL'],'sucursales':['CENTRAL','NORTE','SUR','ORIENTE']});actor=self.case.login(email)
    self.assertEqual(self.case.call('/api/requisiciones/imagenes',actor=actor)[0],200)
    expected=200 if role=='auxti' else 403
    self.assertEqual(self.case.call('/api/requisiciones/imagenes',{'archivos':[self.image(id=self.first['id'])],'reemplazar':True},actor)[0],expected)

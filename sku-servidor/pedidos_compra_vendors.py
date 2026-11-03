@@ -63,7 +63,7 @@ def send_order(po,data,actor):
   config=json.loads(db.execute('SELECT payload FROM po_settings WHERE id=1').fetchone()[0]).get('smtp',{})
   if not config.get('host'):raise ValueError('Sistemas debe configurar SMTP antes de enviar al proveedor.')
   mid=uuid.uuid4().hex;value={'fecha':now(),'actor':actor['email'],'destinatario':recipient,'asunto':subject,'revisionDocumento':doc['revision'],'hashDocumento':fingerprint(doc),'mensaje':body};db.execute('INSERT INTO po_mail VALUES(?,?,?,?,?)',(mid,id,key,'ENVIANDO',dumps(value)))
- message=EmailMessage();message['From']=config['remitente'];message['To']=recipient;message['Subject']=subject;message['Message-ID']='<'+mid+'@gmp-erp.local>';message.set_content(body or 'Adjuntamos '+doc['folio']+'.')
+ message=EmailMessage();message['From']=config['remitente'];message['To']=recipient;message['Subject']=subject;message['Message-ID']='<'+mid+'@jm-erp.local>';message.set_content(body or 'Adjuntamos '+doc['folio']+'.')
  try:
   message.add_attachment(order_pdf(doc),maintype='application',subtype='pdf',filename=doc['folio']+'.pdf')
   if config['seguridad']=='TLS':connection=smtplib.SMTP_SSL(config['host'],config['port'],timeout=30,context=ssl.create_default_context())

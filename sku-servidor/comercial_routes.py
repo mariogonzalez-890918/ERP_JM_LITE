@@ -1,3 +1,4 @@
+import json
 from plantillas_import import customer_import
 from precios_masivos import import_prices
 """Rutas de la v2, aisladas de los catálogos y requisiciones existentes."""
@@ -13,6 +14,14 @@ class CommercialAPI:
  def get(self,path,query,actor):
   cm=self.cm;channel=query.get('canal',['ventasins'])[0];cm.module(actor,channel);company=int(query.get('empresa',['0'])[0]);action=path.removeprefix('/api/comercial/')
   if actor['role']=='ventaspasteleria' and action not in ('meta','productos','clientes','documentos','documento','imprimir','documento/excel','pedidos/cancelaciones'):raise PermissionError('VENTASPASTELERIA solo captura y consulta sus pedidos y presupuestos.')
+  if action.startswith('tpv/'):
+   if channel!='expendios':raise ValueError('Selecciona TPV.')
+   branch=query.get('sucursal',[''])[0];id=query.get('id',[''])[0]
+   if action=='tpv/configuracion':return cm.pos.metadata(company,branch,actor)
+   if action=='tpv/globales':return cm.pos.globals(company,branch,actor)
+   if action=='tpv/global/pdf':return cm.pos.pdf(id,actor),'application/pdf'
+   if action=='tpv/global/json':return json.dumps(cm.pos.document(id,actor),ensure_ascii=False).encode('utf-8'),'application/json'
+   raise ValueError('Opción TPV no encontrada.')
   if action=='pedidos/cancelaciones':return cm.institutional_cancel_requests(company,actor)
   if action=='meta':return cm.metadata(actor,channel)
   if action=='fuente':return self.sync.config(actor)
@@ -40,11 +49,11 @@ class CommercialAPI:
     ch=customer_channels(c);label='AMBOS' if len(ch)>1 else 'EXPENDIOS' if ch==['expendios'] else 'INSTITUCIONALES';rows.append([c.get('codigo',''),c['nombre'],label,c.get('rfc',''),c.get('correo',''),c.get('telefono',''),c.get('domicilio',''),c.get('entrega',''),c.get('condiciones',''),'SI' if c.get('activo') else 'NO'])
    return report_xlsx(rows,'CLIENTES'),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   if action=='productos/excel':
-   rows=[['SKU','DESCRIPCION','CANAL','UOM','TIPO IMPUESTO','Tasa %','PRECIO PUBLICO','PRECIO RUTA','PRECIO DESPACHO','ACTIVO']]
+   rows=[['SKU','DESCRIPCION','CANAL','UOM','TIPO IMPUESTO','Tasa %','PRECIO PUBLICO','PRECIO MINIMO','PRECIO REMATE','ACTIVO']]
    products=product_catalog(cm,company,actor)['productos'] if actor['role'] in ('superadmin','auxti') else cm.products(company,actor,channel)['productos']
    for p in products:
     if channel=='ventasins' and not p.get('institucional',True) or channel=='expendios' and not p.get('expendio'):continue
-    ch='AMBOS' if p.get('institucional',True) and p.get('expendio') else 'EXPENDIOS' if p.get('expendio') else 'INSTITUCIONALES';prices=p.get('precios',{});rows.append([p['sku'],p['nombre'],ch,p['unidad'],tax_name(p.get('iva')),p['iva'] if p.get('iva') is not None else 'PENDIENTE',prices.get('PUBLICO',''),prices.get('RUTA',''),prices.get('DESPACHO',''),'SI' if p.get('activo') else 'NO'])
+    ch='AMBOS' if p.get('institucional',True) and p.get('expendio') else 'EXPENDIOS' if p.get('expendio') else 'INSTITUCIONALES';prices=p.get('precios',{});rows.append([p['sku'],p['nombre'],ch,p['unidad'],tax_name(p.get('iva')),p['iva'] if p.get('iva') is not None else 'PENDIENTE',prices.get('PUBLICO',''),prices.get('MINIMO',''),prices.get('REMATE',''),'SI' if p.get('activo') else 'NO'])
    return report_xlsx(rows),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   if action=='clientes':
    result=cm.customers(company,actor,channel)
@@ -60,11 +69,23 @@ class CommercialAPI:
   if action=='documentos':return cm.documents(company,actor,channel,{k:v[0] for k,v in query.items()})
   if action=='documento/excel':return report_xlsx(report_rows({'documentos':[cm.get_document(query.get('id',[''])[0],actor,channel)]})),'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   if action=='documento':return cm.get_document(query.get('id',[''])[0],actor,channel)
-  if action=='imprimir':return document_html(cm.get_document(query.get('id',[''])[0],actor,channel),channel,query.get('formato',[''])[0]),'text/html; charset=utf-8'
+  if action=='imprimir':
+   document=cm.get_document(query.get('id',[''])[0],actor,channel)
+   if 'logo' not in document.get('emisor',{}):
+    with cm.store.connect() as db:
+     logo=db.execute('SELECT value FROM app_meta WHERE key=?',('company_logo:'+str(document['empresa']),)).fetchone()
+    document.setdefault('emisor',{})['logo']=json.loads(logo[0]).get('imagen','') if logo else ''
+   return document_html(document,channel,query.get('formato',[''])[0]),'text/html; charset=utf-8'
   raise ValueError('Opción comercial no encontrada.')
  def mutate(self,path,data,actor):
   cm=self.cm;channel=data.get('canal','ventasins');cm.module(actor,channel);action=path.removeprefix('/api/comercial/')
-  if actor['role']=='ventaspasteleria' and action not in ('pedidos','pedidos/cancelacion/solicitar'):raise PermissionError('VENTASPASTELERIA solo puede agregar nuevos pedidos y presupuestos.')
+  if actor['role']=='ventaspasteleria' and action not in ('pedidos','presupuestos/convertir','pedidos/cancelacion/solicitar'):raise PermissionError('VENTASPASTELERIA solo puede agregar nuevos pedidos y presupuestos.')
+  if action.startswith('tpv/'):
+   if channel!='expendios':raise ValueError('Selecciona TPV.')
+   handlers={'tpv/configuracion':cm.pos.save_config,'tpv/pago':cm.pos.paid,'tpv/global/revisar':cm.pos.preview,'tpv/global/crear':cm.pos.create,'tpv/global/cancelar':cm.pos.cancel_global}
+   if action not in handlers:raise ValueError('Opción TPV no encontrada.')
+   return handlers[action](data,actor)
+  if action=='presupuestos/convertir':return cm.convert_quote(data,actor)
   if action=='pedidos/cancelacion/solicitar':return cm.request_institutional_cancel(data,actor)
   if action=='pedidos/cancelacion/resolver':return cm.decide_institutional_cancel(data,actor)
   if action=='pedidos/bloqueo':return cm.toggle_order_lock(data,actor)

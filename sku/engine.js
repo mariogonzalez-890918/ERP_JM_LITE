@@ -1,15 +1,14 @@
 // SKU: producto(2) + categoría(2) + subcategoría(2) + consecutivo(7) + verificador Luhn base36(1).
-const CAT={'01':'ADMINISTRACION','02':'EMPAQUE','03':'FABRICACION','04':'JARCERIA','05':'LIQUIDOS','06':'MANTENIMIENTO','07':'PASTILLAJE','08':'POLVOS','09':'SOLIDOS'};
-const SUB={'01':'ARTICULOS DE LIMPIEZA','02':'AZUCARES','03':'BASTONES Y MANGOS','04':'BOLSAS Y CONTENEDORES','05':'CARNES','06':'COBERTURA Y CONFITERIA','07':'COLORANTES','08':'CREMERIA Y EMBUTIDOS','09':'DESECHABLE','10':'ENLATADOS Y CONGELADOS','11':'ENVOLTURA','12':'EQUIPO DE PROTECCION','13':'ETIQUETA','14':'FIGURA','15':'FOLLAJE','16':'FRUTAS Y VERDURAS','17':'GRASAS Y LEVADURAS','18':'HARINAS','19':'HERRAMIENTAS','20':'HIGIENE PERSONAL','21':'HUEVO','22':'LACTEOS','23':'LIQUIDOS','24':'MEJORANTES','25':'MERCERIA','26':'MOBILIARIO','27':'OBLEAS Y TRANSFER','28':'OTROS','29':'PAPELERIA','30':'RELLENOS','31':'SABORIZANTES','32':'SALES Y ESPECIAS','33':'SEMILLAS','34':'UTENSILIOS','35':'VARIOS','36':'VELAS','37':'VINOS Y LICORES','38':'ACEITES','39':'DESHIDRATADOS','40':'BOLSA','41':'DOMO','42':'EMBALAJE','43':'ACCESORIOS'};
-const TIP={IN:'INSUMO',GG:'GASTOS GENERALES'};
-CAT['00']='SIN CLASIFICAR';SUB['00']='SIN CLASIFICAR';TIP['00']='SIN CLASIFICAR';
+const CAT={};
+const SUB={};
+const TIP={};
 const ALIASES={'FIGURAS':'FIGURA','COBERTURA':'COBERTURA Y CONFITERIA','CONFITERIA Y COBERTURAS':'COBERTURA Y CONFITERIA','EQUIPO DE PROTECCION BASICO':'EQUIPO DE PROTECCION','ARTCULOS DE LIMPIEZA':'ARTICULOS DE LIMPIEZA','INSUMOS':'INSUMO'};
 const norm=s=>String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().replace(/\s+/g,' ').toUpperCase();
 function resolve(v,cat){let n=norm(v);n=ALIASES[n]||n;return Object.keys(cat).find(k=>k===n||k===n.padStart(2,'0')||norm(cat[k])===n)||'';}
 const alphabet='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 function checkDigit(body){let sum=0,factor=2;for(let i=body.length-1;i>=0;i--){const v=alphabet.indexOf(body[i]);if(v<0)throw Error('Caracter inválido para el verificador.');const x=v*factor;sum+=Math.floor(x/36)+x%36;factor=factor===2?1:2;}return alphabet[(36-sum%36)%36];}
 function makeSKU(r){if(!r.tipo||!r.categoria||!r.subcategoria)return '';if(!Number.isSafeInteger(r.id)||r.id<1||r.id>9999999)throw Error('Consecutivo fuera de rango.');const body=r.tipo+r.categoria+r.subcategoria+String(r.id).padStart(7,'0');return body+checkDigit(body);}
-function verifySKU(s){return /^(IN|GG|00)\d{11}[0-9A-Z]$/.test(s)&&checkDigit(s.slice(0,-1))===s.slice(-1)&&Object.hasOwn(CAT,s.slice(2,4))&&Object.hasOwn(SUB,s.slice(4,6))&&Number(s.slice(6,13))>0;}
+function verifySKU(s){return /^[A-Z0-9]{6}\d{7}[0-9A-Z]$/.test(s)&&checkDigit(s.slice(0,-1))===s.slice(-1)&&Object.hasOwn(TIP,s.slice(0,2))&&Object.hasOwn(CAT,s.slice(2,4))&&Object.hasOwn(SUB,s.slice(4,6))&&Number(s.slice(6,13))>0;}
 const identity=r=>[r.tipo,r.categoria,r.subcategoria,norm(r.nombre),norm(r.proveedor),norm(r.claveProveedor),norm(r.unidadCompra),norm(r.unidadEntrega)].join('|');
 function validateState(s){
  if(!s||s.version!==3||!Array.isArray(s.registros)||!Array.isArray(s.reservados)||!Number.isSafeInteger(s.maxId)||s.maxId<0||s.maxId>9999999)throw Error('Respaldo incompatible o consecutivo inválido.');

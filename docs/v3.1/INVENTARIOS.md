@@ -1,6 +1,6 @@
 # ERP JM Lite 3.1.4 · Almacenes
 
-Se crea un almacén por razón social y sucursal vinculada: EJIDOS, SAN PABLO, CUAUTITLAN y EJE 8. La razón social se administra en la configuración comercial. Sistemas y AUXTI asignan empresas y sucursales en Compras → Accesos; Inventarios respeta esa misma asignación y los almacenes autorizados del usuario. El módulo se habilita inicialmente para Compras, Gerencia, Almacenista, AUXTI y Superadministrador; Sistemas puede cambiar los accesos por perfil. Requisición nunca recibe acceso a costos.
+Se crea un almacén por razón social y sucursal vinculada: CENTRAL, NORTE, SUR y ORIENTE. La razón social se administra en la configuración comercial. Sistemas y AUXTI asignan empresas y sucursales en Compras → Accesos; Inventarios respeta esa misma asignación y los almacenes autorizados del usuario. El módulo se habilita inicialmente para Compras, Gerencia, Almacenista, AUXTI y Superadministrador; Sistemas puede cambiar los accesos por perfil. Requisición nunca recibe acceso a costos.
 
 ## Puesta en marcha
 

@@ -5,8 +5,8 @@ from requisiciones import Conflict,NS,norm,read_rows,text,now
 
 ALIASES={'INSUMOS':'INSUMO','FIGURAS':'FIGURA','COBERTURA':'COBERTURA Y CONFITERIA','CONFITERIA Y COBERTURAS':'COBERTURA Y CONFITERIA','ARTCULOS DE LIMPIEZA':'ARTICULOS DE LIMPIEZA','EQUIPO DE PROTECCION BASICO':'EQUIPO DE PROTECCION'}
 def resolve(value,table):
- value=ALIASES.get(norm(value),norm(value))
- return next((key for key,label in table.items() if value in (key,norm(label))),None)
+ original=norm(value);alias=ALIASES.get(original,original)
+ return next((key for key,label in table.items() if original in (key,norm(label)) or alias in (key,norm(label))),None)
 
 def parse_products(raw,filename,catalogs):
  if not filename.lower().endswith('.xlsx'):raise ValueError('Carga un Excel XLSX con la pestaña PRODUCTOS.')
@@ -37,6 +37,7 @@ class PurchaseImporter:
  def __init__(self,store,make_sku,validate,protect):self.store=store;self.make_sku=make_sku;self.validate=validate;self.protect=protect
  def run(self,data,actor):
   require_module(actor,'compras');require_module(actor,'cargar_maestro')
+  if any(not self.store.catalogs.get(key) for key in ('TIP','CAT','SUB')):raise ValueError('Configura los tipos, categorías y subcategorías de Compras antes de cargar productos.')
   started=time.perf_counter();filename=text(data.get('archivo',''),200)
   try:raw=base64.b64decode(data.get('contenido',''),validate=True)
   except Exception:raise ValueError('Archivo inválido.')

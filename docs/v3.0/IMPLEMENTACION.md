@@ -2,7 +2,7 @@
 
 El flujo de Compras toma como referencia el [modelo de Odoo 14](https://github.com/odoo/odoo/blob/14.0/addons/purchase/models/purchase.py): cotización, pedido confirmado, recepción y registro de compra/factura del proveedor. Es una implementación propia integrada en este servidor; el registro de compra es operativo, sin timbrado CFDI ni contabilización automática.
 
-Compras comparte las razones sociales de Institucionales y Expendios. Utiliza el maestro PRODUCTOS cargado en Requisiciones y sus costos/unidades. Permite COMPRA o ENTREGA con equivalencia validada; una equivalencia desconocida o impuesto vacío requiere corrección, sin inventar cero. Los precios de Compras se capturan antes de impuesto. Los documentos conservan sus unidades, costos y equivalencia al confirmarse.
+Compras comparte las razones sociales de Institucionales y TPV. Utiliza el maestro PRODUCTOS cargado en Requisiciones y sus costos/unidades. Permite COMPRA o ENTREGA con equivalencia validada; una equivalencia desconocida o impuesto vacío requiere corrección, sin inventar cero. Los precios de Compras se capturan antes de impuesto. Los documentos conservan sus unidades, costos y equivalencia al confirmarse.
 
 Compras, Gerencia, Superadministrador, AUXTI y Almacenista capturan/confirmar pedidos y registran compras. Almacenista puede recibir según acceso. Compras, Gerencia, AUXTI y Sistemas configuran series por razón social, sucursal y tipo de documento. Los números ya emitidos permanecen reservados incluso después de cancelación o restauración. Sistemas/AUXTI asignan alcance de empresas/sucursales desde Compras → Accesos; habilitar un perfil por sí solo no asigna datos de una razón social.
 
@@ -18,7 +18,7 @@ Compras imprime solo en A4 y PDF. Observaciones: 100,000 caracteres; condiciones
 
 Correo: Sistemas/AUXTI configuran SMTP TLS privado; solo el botón explícito de envío envía un PDF real al destinatario revisado. Un envío no confirmado queda REVISAR, sin reintentos automáticos. El respaldo de Compras no contiene contraseñas SMTP. No se envían correos de prueba a proveedores durante el desarrollo.
 
-Actualización: detener el EXE anterior, conservar data y config.json y ejecutar GMP_ERP.exe en la misma carpeta. El EXE público no contiene maestros, datos empresariales ni credenciales. El primer inicio de una instalación nueva solicita crear contraseña. Los respaldos de Compras se descargan en su módulo; solo Sistemas restaura y se conserva una copia previa.
+Actualización: detener el EXE anterior, conservar data y config.json y ejecutar JM_ERP.exe en la misma carpeta. El EXE público no contiene maestros, datos empresariales ni credenciales. El primer inicio de una instalación nueva solicita crear contraseña. Los respaldos de Compras se descargan en su módulo; solo Sistemas restaura y se conserva una copia previa.
 
 ## Correcciones 3.0.1
 

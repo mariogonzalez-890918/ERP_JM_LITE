@@ -61,13 +61,15 @@ class SyncService:
   with self.cm.store.connect() as db:db.execute('UPDATE cm_source SET state=? WHERE id=1',(dumps(stamp),))
   threading.Thread(target=self._run,args=(rev,config,stamp),daemon=True).start();return {'ok':True,'enProceso':True}
  def _run(self,revision,config,state):
+  with self.cm.store.maintenance.shared():return self._run_guarded(revision,config,state)
+ def _run_guarded(self,revision,config,state):
   try:
    if config.get('tipo')=='ARCHIVO':
     target=pathlib.Path(config.get('ruta',''))
     if target.suffix.lower()!='.xlsx' or not target.is_absolute():raise ValueError('Ruta de Excel inválida.')
     with target.open('rb') as source:raw=source.read(15*1024*1024+1)
    else:
-    url=validate_url(config['url']);request=urllib.request.Request(url,headers={'User-Agent':'RFQ-SKU-GMP/2.0','Accept':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})
+    url=validate_url(config['url']);request=urllib.request.Request(url,headers={'User-Agent':'RFQ-SKU-JM/2.0','Accept':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})
     with urllib.request.build_opener(Redirect()).open(request,timeout=45) as response:raw=response.read(15*1024*1024+1)
    if len(raw)>15*1024*1024 or not raw.startswith(b'PK'):raise ValueError('La liga no entregó un archivo Excel. Proporciona una descarga autorizada; un iframe o página de acceso no permite sincronizar.')
    actor=self.actor(config['configuradoPor']);result=import_master(self.cm,{'contenido':base64.b64encode(raw).decode(),'empresas':config['empresas'],'archivo':'OneDrive/SUGERIDO.xlsx','_source_revision':revision},actor)
@@ -102,6 +104,8 @@ class SyncService:
   except Exception:
    with self.cm.store.connect() as db:db.execute('UPDATE cm_source SET state=? WHERE id=1',(dumps({'ok':False,'enProceso':False,'mensaje':'No se pudo completar el maestro inicial. El archivo permanece guardado para reintentar o cargarlo manualmente.'}),))
  def tick(self):
+  with self.cm.store.maintenance.shared():return self._tick_guarded()
+ def _tick_guarded(self):
   with self.cm.store.connect() as db:raw,state=db.execute('SELECT payload,state FROM cm_source WHERE id=1').fetchone()
   config=json.loads(raw);state=json.loads(state)
   if config.get('habilitada') and time.time()-state.get('ultimoIntento',0)>=INTERVAL:self.trigger(self.actor(config['configuradoPor']),True)

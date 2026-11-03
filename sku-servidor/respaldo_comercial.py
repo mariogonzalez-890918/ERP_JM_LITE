@@ -1,7 +1,7 @@
 """Respaldo comercial completo; restauración sin borrar ventas ni movimientos posteriores."""
 import json,re,sqlite3
 from decimal import Decimal
-from comercial import amount,tax_line,money
+from comercial import amount,tax_line,money,tax_rate,LISTS
 from requisiciones import BRANCHES,Conflict
 
 TABLES=('cm_companies','cm_access','cm_products','cm_prices','cm_customers','cm_templates','cm_reports','cm_boxes','cm_sessions','cm_sequences','cm_sequence_registry','cm_documents','cm_versions','cm_cancellations','cm_cash_moves','cm_audit','cm_revision','cm_source')
@@ -31,9 +31,9 @@ def validate(db,data):
  for r in companies.values():
   v=json.loads(r['payload']);check(type(r['id']) is int and r['id']>0 and isinstance(v.get('nombre'),str) and isinstance(v.get('sucursales'),list) and all(b in BRANCHES for b in v['sucursales']),'Razón social inválida.')
  for sku,r in products.items():
-  p=json.loads(r['payload']);check(re.fullmatch('[A-Z0-9]{14}',sku) and p.get('nombre') and p.get('unidad') and (p.get('iva') is None or amount(p.get('iva')) in (0,8,16)),'Producto comercial inválido.')
+  p=json.loads(r['payload']);check(re.fullmatch('[A-Z0-9]{14}',sku) and p.get('nombre') and p.get('unidad') and (p.get('iva') is None or tax_rate(p.get('iva'))>-100),'Producto comercial inválido.')
  for r in dictionaries(data,'cm_prices'):
-  check(r['sku'] in products and r['list'] in ('PUBLICO','RUTA','DESPACHO'),'Precio sin producto/lista.');amount(json.loads(r['payload'])['precio'])
+  check(r['sku'] in products and r['list'] in LISTS,'Precio sin producto/lista.');amount(json.loads(r['payload'])['precio'])
   if r['customer']:check(r['customer'] in customers and customers[r['customer']]['company']==r['company'],'Precio de cliente de otra empresa.')
  for r in sessions.values():check(r['box'] in boxes and boxes[r['box']]['company']==r['company'] and r['state'] in ('ABIERTA','CERRADA'),'Sesión de caja inválida.')
  for r in docs.values():
@@ -43,7 +43,12 @@ def validate(db,data):
    check(line['sku'] in products,'Documento con producto inexistente.');calculated=tax_line(line['cantidad'],line['precio'],line['iva'],line.get('descuento','0'))
    check(all(calculated[k]==line[k] for k in ('base','impuesto','total')),'Importes incompatibles en documento.')
   check(all(money(sum(Decimal(p[k]) for p in v['partidas']))==v[k] for k in ('base','impuesto','total')),'Total comercial incorrecto.')
-  if r['channel']=='expendios':check(r['session'] in sessions and sessions[r['session']]['company']==r['company'] and sessions[r['session']]['box']==r['box'],'Venta asociada a otra caja/empresa.')
+  if r['channel']=='expendios' and v.get('tipo')!='FACTURA_GLOBAL':check(r['session'] in sessions and sessions[r['session']]['company']==r['company'] and sessions[r['session']]['box']==r['box'],'Venta asociada a otra caja/empresa.')
+  if v.get('tipo')=='FACTURA_GLOBAL':
+   check(r['channel']=='expendios' and v.get('notas') and len(v['notas'])==len(set(v['notas'])),'Global sin notas o con notas repetidas.')
+   for id in v['notas']:
+    check(id in docs and docs[id]['company']==r['company'] and docs[id]['channel']=='expendios','Global con notas inexistentes o de otra razón social.')
+    note=json.loads(docs[id]['payload']);check(note.get('tipo')=='VENTA' and note.get('sucursal')==v['sucursal'],'Global con nota de otra sucursal.')
  for r in dictionaries(data,'cm_cash_moves'):check(r['session'] in sessions and sessions[r['session']]['company']==r['company'],'Movimiento sin sesión de caja.')
  for r in dictionaries(data,'cm_cancellations'):check(r['document'] in docs and docs[r['document']]['company']==r['company'],'Cancelación sin venta.')
  for r in dictionaries(data,'cm_versions'):check(r['document'] in docs,'Versión sin documento.')

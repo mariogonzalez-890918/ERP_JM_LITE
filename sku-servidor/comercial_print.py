@@ -1,6 +1,6 @@
 from comercial import tax_name
 from fechas import display_date
-"""Documentos comerciales. El ticket usa una lista explícita sin datos fiscales."""
+"""Documentos comerciales y notas de operación con el público en general."""
 import csv,html,io,zipfile,re
 from decimal import Decimal
 
@@ -8,18 +8,25 @@ def esc(v):return html.escape(str(v),quote=True)
 
 def document_html(doc,channel,formato=""):
  if formato not in ("","a4","ticket"):raise ValueError("Formato de impresión inválido.")
- ticket=channel=='expendios' or formato=='ticket';settings=doc.get('ticket',{});logo='<img src="/logo.svg" alt="ERP JM Lite" class="logo">'
+ ticket=channel=='expendios' or formato=='ticket';settings=doc.get('ticket',{});image=doc.get('emisor',{}).get('logo','');logo=('<img src="'+esc(image)+'" alt="Logo de '+esc(doc.get('emisor',{}).get('nombre','la razón social'))+'" class="logo">') if isinstance(image,str) and image.startswith('data:image/png;base64,') else ''
  if channel=='expendios':
   header=(logo if settings.get('mostrarLogo',True) else '')+('<h2>'+esc(doc['sucursal'])+'</h2>' if settings.get('mostrarSucursal',True) else '')
   subtitle='Ticket '+esc(doc['folio'])+'<br>Folio interno '+esc(doc['folioInterno'])
+  if doc.get('datosNotaPublico'):
+   fiscal=doc['datosNotaPublico'];header+='<p>'+esc(fiscal['nombre'])+'<br>RFC '+esc(fiscal['rfc'])+' · CP '+esc(fiscal['codigoPostal'])+'</p>'
+   subtitle+='<br>Nota de operación con el público en general'
  else:
   company=doc['emisor'];customer=doc.get('cliente') or {}
   header=logo+'<h1>'+esc(company['nombre'])+'</h1><p>'+esc(company.get('rfc',''))+'<br>'+esc(company.get('domicilio',''))+'</p>'
   subtitle=esc(doc['tipo'])+' '+esc(doc['folio'])+'<p>Cliente: '+esc(customer.get('nombre') or doc.get('clienteOpcional') or 'Público general')+'<br>'+esc(customer.get('domicilio',''))+'</p>'
  if channel=='ventasins':subtitle+='<p>Fecha pedido: '+esc(display_date(doc.get('fechaPedido',doc['fecha'][:10])))+'<br>Fecha entrega: '+esc(display_date(doc.get('fechaEntrega','')))+'</p>'
+ if channel=='ventasins':subtitle+='<p>Moneda: '+esc(doc.get('moneda') or 'MXN')+' · Tipo de cambio: '+esc(doc.get('tipoCambio') or '1')+('</p><p>Vigencia: '+esc(display_date(doc['vigencia'])) if doc.get('tipo')=='PRESUPUESTO' and doc.get('vigencia') else '')+'</p>'
+ if channel=='ventasins' and doc.get('presupuestoOrigen'):subtitle+='<p>Presupuesto de origen: '+esc(doc['presupuestoOrigen'])+'</p>'
+ if channel=='ventasins' and doc.get('pedidoFolio'):subtitle+='<p>Pedido relacionado: '+esc(doc['pedidoFolio'])+'</p>'
+ if doc.get('tipo') in ('FACTURA','NOTA_CREDITO'):subtitle+='<p><strong>DOCUMENTO COMERCIAL · PENDIENTE DE TIMBRADO</strong><br>No es un CFDI certificado. XML y UUID pendientes del PAC.</p>'
  rows=''.join('<tr><td>'+esc(r['nombre'])+'<small>'+esc(r['sku'])+'</small>'+('<small>'+esc(r.get('nota',''))+'</small>' if r.get('nota') else '')+'</td><td>'+esc(r['cantidad'])+' '+esc(r['unidad'])+'</td><td>$'+esc(r['precio'])+'</td><td>$'+esc(r['total'])+'</td></tr>' for r in doc['partidas'])
  print_options=('<a class="download" href="/api/comercial/imprimir?id='+esc(doc['id'])+'&amp;canal=ventasins&amp;formato=a4">Hoja A4</a> · <a class="download" href="/api/comercial/imprimir?id='+esc(doc['id'])+'&amp;canal=ventasins&amp;formato=ticket">BIXOLON 80 mm</a> ' if channel=='ventasins' else '<span class="download">BIXOLON 80 mm</span> ')
- tax_detail=''.join('<br>'+name+' incluido $'+esc(format(sum((Decimal(r['impuesto']) for r in doc['partidas'] if tax_name(r.get('iva'))==name),Decimal(0)),'.2f')) for name in ('IEPS','IVA') if any(tax_name(r.get('iva'))==name for r in doc['partidas']))
+ tax_detail=''.join('<br>'+esc(name)+(' incluido $' if total>0 else ' $')+esc(format(total,'.2f')) for name in dict.fromkeys(r.get('tipoImpuesto') or tax_name(r.get('iva')) for r in doc['partidas']) for total in [sum((Decimal(r['impuesto']) for r in doc['partidas'] if (r.get('tipoImpuesto') or tax_name(r.get('iva')))==name),Decimal(0))] if total)
  css='@page{size:80mm auto;margin:4mm}body{width:72mm;margin:0;font:11px Arial}.logo{width:30mm}h2{font-size:15px}' if ticket else '@page{size:A4;margin:15mm}body{font:13px Arial;max-width:900px;margin:auto}.logo{width:85px;float:right}'
  return ('<!doctype html><html lang="es"><meta charset="utf-8"><title>'+esc(doc['folio'])+'</title><style>'+css+'table{width:100%;border-collapse:collapse}td,th{padding:6px 2px;border-bottom:1px solid #ddd;text-align:left}small{display:block;font-size:.8em}.total{text-align:right;font-weight:bold;font-size:1.3em}.sign{margin-top:35px;border-top:1px solid #555;text-align:center}@media print{button,.download{display:none}}</style><button onclick="window.print()">Imprimir / Guardar PDF</button> '+print_options+'<a class="download" download="'+esc(doc["folio"])+'.xlsx" href="/api/comercial/documento/excel?id='+esc(doc["id"])+'&amp;canal='+esc(channel)+'">Descargar Excel</a><header>'+header+'</header><p>'+subtitle+'<br>'+esc(display_date(doc['fecha']))+' · '+esc(doc['estado'])+'</p><table><thead><tr><th>Producto</th><th>Cantidad</th><th>Precio</th><th>Total</th></tr></thead><tbody>'+rows+'</tbody></table><p>Subtotal $'+esc(doc['base'])+tax_detail+'</p><p class="total">TOTAL $'+esc(doc['total'])+'</p>'+('<p>Recibido $'+esc(doc['pago']['recibido'])+' · Cambio $'+esc(doc['pago']['cambio'])+'</p>' if channel=='expendios' and doc.get('modo')!='TICKETS' else ('<p><b>Observaciones:</b> '+esc(doc['observaciones']).replace('\n','<br>')+'</p>' if doc.get('observaciones') else '')+'<p>'+esc(doc.get('condiciones','')).replace('\n','<br>')+'</p>')+'<div class="sign">Recibió / Firma</div></html>').encode()
 
@@ -42,6 +49,7 @@ def report_rows(result,columns=None,selection=None):
  return rows
 
 def report_csv(rows):
+ rows=[[str(v) if v is not None else '' for v in row] for row in rows]
  out=io.StringIO();writer=csv.writer(out,delimiter=';')
  # Evita interpretar nombres/códigos como fórmulas al abrir CSV en Excel.
  writer.writerows([[("'"+v) if v.startswith(('=','+','-','@')) else v for v in row] for row in rows]);return ('\ufeff'+out.getvalue()).encode('utf8')
@@ -55,7 +63,7 @@ def report_xlsx(rows,sheet_name="Reporte"):
   return value
  def cell(v,i,j):
   ref=column(j)+str(i)
-  numeric=i>1 and rows[0][j-1] in ('Emitidas','Borradores','Canceladas','Cantidad','Precio con IVA','Precio con impuesto','Tasa %','IVA %','Subtotal','IVA incluido','IEPS incluido','Impuesto incluido','Total','PRECIO PUBLICO','PRECIO RUTA','PRECIO DESPACHO','FISICO','ENTRADA','SALIDA','SALDO_ANTERIOR','SALDO','COSTO_UNITARIO','IMPORTE','COSTO_UNITARIO_SIN_IMPUESTO','VALOR','INICIAL','INICIAL_PERIODO','ENTRADAS','SALIDAS','EXISTENCIA_AL_CORTE','EXISTENCIA_ACTUAL') and re.fullmatch(r'-?\d+(?:\.\d+)?',v) and len(v.replace('.','').lstrip('0'))<=15
+  numeric=i>1 and rows[0][j-1] in ('Planeado','Fabricado','Rechazado','Recibido','Pendiente','Estimado','Real','Costo unitario','Redondeo','Variación','Importe','Impuestos','Saldo factura','Emitidas','Borradores','Canceladas','Cantidad','Precio con IVA','Precio con impuesto','Tasa %','IVA %','Subtotal','IVA incluido','IEPS incluido','Impuesto incluido','Total','PRECIO PUBLICO','PRECIO RUTA','PRECIO DESPACHO','FISICO','ENTRADA','SALIDA','SALDO_ANTERIOR','SALDO','COSTO_UNITARIO','IMPORTE','COSTO_UNITARIO_SIN_IMPUESTO','VALOR','INICIAL','INICIAL_PERIODO','ENTRADAS','SALIDAS','EXISTENCIA_AL_CORTE','EXISTENCIA_ACTUAL') and re.fullmatch(r'-?\d+(?:\.\d+)?',v) and len(v.replace('.','').lstrip('0'))<=15
   return '<c r="'+ref+'"><v>'+v+'</v></c>' if numeric else '<c r="'+ref+'" t="inlineStr"><is><t xml:space="preserve">'+escape(v)+'</t></is></c>'
  sheet='<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'+''.join('<row r="'+str(i)+'">'+''.join(cell(v,i,j) for j,v in enumerate(row,1))+'</row>' for i,row in enumerate(rows,1))+'</sheetData></worksheet>'
  out=io.BytesIO()
@@ -72,6 +80,6 @@ def report_pdf(rows,title="ERP JM Lite · Reporte comercial",subtitle="Documento
  from reportlab.lib.styles import ParagraphStyle
  from reportlab.platypus import SimpleDocTemplate,LongTable,TableStyle,Paragraph,Spacer
  out=io.BytesIO();page=landscape(A4);style=ParagraphStyle('cm',fontName='Helvetica',fontSize=7,leading=9);heading=ParagraphStyle('heading',fontName='Helvetica-Bold',fontSize=16,leading=22)
- cells=[[Paragraph(esc(v),style) for v in row] for row in rows];table=LongTable(cells,repeatRows=1,colWidths=[(page[0]-40)/len(rows[0])]*len(rows[0]))
- table.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#eae1e7')),('ROWBACKGROUNDS',(0,1),(-1,-1),[colors.white,colors.HexColor('#f6f7f8')]),('VALIGN',(0,0),(-1,-1),'TOP'),('BOTTOMPADDING',(0,0),(-1,-1),7),('TOPPADDING',(0,0),(-1,-1),7)]))
+ cells=[[Paragraph(esc(v),style) for v in row] for row in rows];table=LongTable(cells,repeatRows=1,splitInRow=1,colWidths=[(page[0]-40)/len(rows[0])]*len(rows[0]))
+ table.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#e4edf5')),('ROWBACKGROUNDS',(0,1),(-1,-1),[colors.white,colors.HexColor('#f6f7f8')]),('VALIGN',(0,0),(-1,-1),'TOP'),('BOTTOMPADDING',(0,0),(-1,-1),7),('TOPPADDING',(0,0),(-1,-1),7)]))
  SimpleDocTemplate(out,pagesize=page,leftMargin=20,rightMargin=20,topMargin=24,bottomMargin=24).build([Paragraph(html.escape(title),heading),Paragraph(html.escape(subtitle),style),Spacer(1,12),table]);return out.getvalue()

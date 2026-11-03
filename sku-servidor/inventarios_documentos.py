@@ -1,3 +1,4 @@
+from almacenes_config import details as warehouse_details
 """Entregas explícitas a Compras, bandeja de autorizaciones y documentos de almacén."""
 import copy,html,io,json
 from decimal import Decimal
@@ -89,7 +90,7 @@ class InventoryDocuments:
     except PermissionError:pass
    if not access:raise PermissionError('No tienes acceso a este traspaso.')
    def label(w):
-    r=db.execute('SELECT company,branch FROM inv_warehouses WHERE id=?',(w,)).fetchone();co=db.execute('SELECT payload FROM cm_companies WHERE id=?',(r[0],)).fetchone();return (json.loads(co[0])['nombre'] if co else str(r[0]))+' / '+r[1]
+    r=db.execute('SELECT company,branch FROM inv_warehouses WHERE id=?',(w,)).fetchone();co=db.execute('SELECT payload FROM cm_companies WHERE id=?',(r[0],)).fetchone();return (json.loads(co[0])['nombre'] if co else str(r[0]))+' / '+r[1]+' / '+warehouse_details(db,w,r[1])['nombre']
    origin,destination=label(d['origen']),label(d['destino'])
   kind=q.get('tipo','SALIDA').upper();events=[]
   if kind=='SALIDA':events=[{'titulo':'Salida de traspaso' if d.get('fechaEnvio') else 'Solicitud de salida de traspaso','fecha':d.get('fechaEnvio',d['fecha']),'recibe':'','actor':d.get('enviadoPor',d['solicitadoPor']),'partidas':[{k:l[k] for k in ('sku','cantidad')} for l in d['partidas']]}]

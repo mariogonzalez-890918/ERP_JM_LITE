@@ -33,7 +33,7 @@ Ejemplo **ficticio**: `PTPB07BOL0000A`, BOLILLO DEMO, PT, PB, 07, A11, PIEZA, c�
 | --- | --- |
 | LISTA_CLAVE / NOMBRE_LISTA | Identidad estable y nombre legible. |
 | CANAL | VENTASINS o EXPENDIOS. Una lista compartida se asigna explícitamente a ambos; no se comparte por coincidencia de nombre. |
-| SUCURSAL | EJIDOS, SAN PABLO, CUAUTITLAN o EJE 8; permitir generalidad solo mediante opción explícita del layout. |
+| SUCURSAL | CENTRAL, NORTE, SUR o ORIENTE; permitir generalidad solo mediante opción explícita del layout. |
 | CLIENTE_CLAVE | Opcional; referencia a cliente existente. |
 | SKU / UNIDAD_VENTA | Producto y presentación exactos. |
 | CANTIDAD_MINIMA / CANTIDAD_MAXIMA | Rango de tramo; máximo vacío significa sin tope. Rechazar solapamientos de igual prioridad. |
@@ -49,13 +49,13 @@ Clave de actualización: razón social + lista + canal + alcance + SKU + unidad 
 | Campo | Regla |
 | --- | --- |
 | SUCURSAL / CAJA_CLAVE | Sucursal existente y caja registrada; no crea cajas ni asigna usuarios de forma silenciosa. |
-| SKU | Debe ser vendible en Expendios y estar activo. |
-| CATEGORIA_TPV | Categoría visual de navegación del expendio; puede mapear MODULO_ID_PDV. |
+| SKU | Debe ser vendible en TPV y estar activo. |
+| CATEGORIA_TPV | Categoría visual de navegación del TPV; puede mapear MODULO_ID_PDV. |
 | ORDEN_CATEGORIA / ORDEN_PRODUCTO | Enteros para ordenar pestañas y tarjetas. |
 | VISIBLE | SI/NO; ocultar no elimina el producto ni tickets anteriores. |
 | LISTA_PREDETERMINADA | Lista autorizada para la caja; evitar listas predeterminadas contradictorias en distintas filas de una misma caja. |
 
-Este layout organiza qué se ve en la caja. No carga ventas pagadas, efectivo, existencias ni asignaciones de acceso. Cargarlo exige **Expendios habilitado + importar layout + Cargar maestros**, y alcance autorizado sobre las cajas incluidas.
+Este layout organiza qué se ve en la caja. No carga ventas pagadas, efectivo, existencias ni asignaciones de acceso. Cargarlo exige **TPV habilitado + importar layout + Cargar maestros**, y alcance autorizado sobre las cajas incluidas.
 
 ## 4. PLANTILLAS_PRESUPUESTO y METAS_VENTAS
 

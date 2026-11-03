@@ -1,6 +1,6 @@
 # ERP JM Lite
 
-GENERADOR DE SKU GMP - MAESTROS, UNIDAD DE ENTREGA Y RESPALDOS
+GENERADOR DE SKU JM - MAESTROS, UNIDAD DE ENTREGA Y RESPALDOS
 
 MAESTRO DE COMPRAS
 En SKU Compras > Cargar listas > Actualizar maestro de compras · PRODUCTOS,
@@ -69,16 +69,16 @@ Al iniciar se ajusta la prioridad de UM_ENTREGA a partir del maestro guardado,
 sin cambiar los folios ni los datos de las solicitudes ya emitidas.
 
 
-GENERADOR DE SKU GMP - WINDOWS DE 64 BITS
+GENERADOR DE SKU JM - WINDOWS DE 64 BITS
 
-1. Copia la carpeta a una ruta fija del servidor, por ejemplo C:\SKU-JAD.
+1. Copia la carpeta a una ruta fija del servidor, por ejemplo C:\ERP-JM-Lite.
 2. Abre ERP_JM_Lite.exe. No necesitas instalar Python.
 3. Inicia sesión con mario.gonzalez@jad-ayt.com y la contraseña que configuraste.
 4. Ejecuta ABRIR-PUERTO.bat y acepta la solicitud de administrador de Windows.
 5. Desde otra computadora abre http://IP-DEL-SERVIDOR:8080
    Usa la IP local, la de Radmin VPN o la de ZeroTier, según tu conexión.
 
-El EXE incluye compras (774 artículos) y ventas (625 artículos) y el logo GMP.
+El EXE incluye compras (774 artículos) y ventas (625 artículos) y el logo JM.
 Incluye Requisición de materiales con 700 artículos de la pestaña PRODUCTOS,
 áreas solicitantes, series por sucursal y fecha asignada por el servidor.
 Consulta REQUISICIONES.txt para cargar maestros, emitir e imprimir solicitudes.
@@ -113,7 +113,7 @@ Administrar usuarios y perfiles. Alta de productos no tiene acceso a respaldos.
 Los respaldos son
 exclusivos del superadministrador.
 
-Consulta ACTUALIZAR-GMP.txt para sustituir el EXE anterior sin perder datos.
+Consulta ACTUALIZAR-JM.txt para sustituir el EXE anterior sin perder datos.
 
 Consulta AUTORIZACIONES-Y-DESCARGAS.txt para Excel, PDF y cambios autorizados.
 
@@ -125,7 +125,7 @@ ACTUALIZACIÓN DE MAESTROS Y RESPALDOS: consulta MAESTROS-Y-RESPALDOS.txt.
 
 
 
-GENERADOR DE SKU GMP - NUEVA NAVEGACIÓN
+GENERADOR DE SKU JM - NUEVA NAVEGACIÓN
 
 INICIO
 Al iniciar sesión verás las tarjetas de las herramientas permitidas para tu
@@ -164,7 +164,7 @@ Conserva data y config.json. Esta actualización reorganiza la interfaz;
 no reinicia usuarios, catálogos, solicitudes, permisos ni folios.
 
 
-GENERADOR DE SKU GMP - REQUISICION DE MATERIALES
+GENERADOR DE SKU JM - REQUISICION DE MATERIALES
 
 MAESTRO INICIAL
 Se cargan exclusivamente los 700 artículos de la pestaña PRODUCTOS del archivo
@@ -201,10 +201,10 @@ Se registran como SOLICITADA; no se registra automáticamente una entrega ni
 se descuentan existencias. Se admiten hasta 200 partidas por solicitud.
 
 SERIES INICIALES
-EJIDOS: REQ-EJI-000001
-SAN PABLO: REQ-SP-000001
-CUAUTITLAN: REQ-CUA-000001
-EJE 8: REQ-E8-000001
+CENTRAL: REQ-EJI-000001
+NORTE: REQ-SP-000001
+SUR: REQ-CUA-000001
+ORIENTE: REQ-E8-000001
 Cada sucursal tiene un consecutivo independiente. Dos usuarios no pueden
 recibir el mismo folio y reintentar un envío no genera otra solicitud.
 El folio mostrado en el formulario es una vista previa; al emitir se asigna
@@ -231,7 +231,7 @@ Superadministrador: solicitudes, maestros, series y folios.
 Compras y alta de productos: solicitudes y carga de maestros.
 Ventas: emitir y consultar solicitudes, sin cargar maestros ni configurar.
 Visualizador: consulta y descarga, sin emitir ni configurar.
-Gerente: consulta requisiciones de EJIDOS, SAN PABLO, CUAUTITLAN y EJE 8.
+Gerente: consulta requisiciones de CENTRAL, NORTE, SUR y ORIENTE.
 Puede crear y editar reportes, impuestos, costos y equivalencias del reporte.
 No modifica requisiciones emitidas ni administra usuarios o respaldos.
 Almacenista: solo consulta de requisiciones en los almacenes que seleccione
@@ -259,7 +259,7 @@ usuarios ni contraseñas existentes. No copies carpetas de pruebas al servidor.
 El acceso continúa en http://IP-DEL-SERVIDOR:8080 por LAN, Radmin o ZeroTier.
 
 
-GENERADOR DE SKU GMP - ACCESOS POR PERFIL Y REPORTES DE COSTO
+GENERADOR DE SKU JM - ACCESOS POR PERFIL Y REPORTES DE COSTO
 
 MODULOS POR PERFIL
 Superadministrador dispone de Acceso a módulos por perfil, arriba de las pestañas.
@@ -331,7 +331,7 @@ Una equivalencia cero queda pendiente, sin división entre cero ni costo gratuit
 
 
 
-GENERADOR DE SKU GMP - REPORTES Y CAMBIOS AUTORIZADOS
+GENERADOR DE SKU JM - REPORTES Y CAMBIOS AUTORIZADOS
 
 VARIOS REPORTES Y DESCARGAS
 En el menú izquierdo > Reportes de requisición:

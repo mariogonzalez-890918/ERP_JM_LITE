@@ -1,0 +1,18 @@
+<div id="bkGeneralRestoreCard" class="jm-backup-card" hidden>
+ <h3>Restaurar respaldo general</h3>
+ <p>Recupera todos los módulos y todas las empresas desde un ZIP general. Solo Sistemas puede realizar esta operación. Se reemplaza la instalación completa al estado del respaldo, incluidos usuarios, contraseñas, permisos, folios, inventarios y documentos.</p>
+ <p class="note">Primero revisa el archivo. Al confirmar se bloquean temporalmente las operaciones, se guarda una copia general previa y se cierran todas las sesiones. Conservamos el puerto y la ruta de datos de este servidor. La sincronización automática se desactiva para que puedas revisar su origen.</p>
+ <label>ZIP de respaldo general<input id="bkGeneralRestoreFile" type="file" accept=".zip,application/zip"></label>
+ <button id="bkGeneralRestoreReview" type="button" class="secondary" disabled>Revisar respaldo general</button>
+ <div id="bkGeneralRestoreSummary" hidden>
+  <p id="bkGeneralRestoreInfo"></p>
+  <div class="scroll"><table><thead><tr><th>Datos</th><th>Actuales</th><th>En el respaldo</th></tr></thead><tbody id="bkGeneralRestoreRows"></tbody></table></div>
+  <label>Contraseña actual de Sistemas<input id="bkGeneralRestorePassword" type="password" autocomplete="current-password" maxlength="200"></label>
+  <label>Escribe RESTAURAR TODO<input id="bkGeneralRestoreText" autocomplete="off" placeholder="RESTAURAR TODO"></label>
+  <label class="jm-check-label"><input id="bkGeneralRestoreCheck" type="checkbox"><span>Confirmo reemplazar todos los datos con este respaldo. Después ingresaré con las credenciales que contiene el respaldo.</span></label>
+  <div class="actions"><button id="bkGeneralRestoreConfirm" type="button" class="danger" disabled>Restaurar toda la instalación</button><button id="bkGeneralRestoreCancel" type="button" class="secondary">Cancelar revisión</button></div>
+ </div>
+ <output id="bkGeneralRestoreMessage" role="status" aria-live="polite"></output>
+ <a id="bkGeneralRestorePrevious" hidden>Descargar respaldo general previo</a>
+ <a id="bkGeneralRestoreLogin" href="/" hidden>Ir a iniciar sesión</a>
+</div>

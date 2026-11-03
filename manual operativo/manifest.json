@@ -1,0 +1,25 @@
+{
+  "edicion_documental": "1.0",
+  "fecha": "2026-11-03",
+  "piloto_documentado": "ca0ce1e",
+  "fichas_operativas": 27,
+  "fichas_reportes": 11,
+  "areas_qualitylite": 15,
+  "archivos": {
+    "Manual_Tecnico_y_Dueno_ERP_JM.pdf": {
+      "paginas": 64,
+      "sha256": "0148260a2aa62f915aae0521cf32701c1c7e5e599a1b2160bfadc1384d685303",
+      "bytes": 2178603
+    },
+    "Manual_Usuario_ERP_JM.pdf": {
+      "paginas": 60,
+      "sha256": "2481ab2a37d51fe6826b211492a8315344af0fbd71ee40ebd121159a4db8cd5b",
+      "bytes": 2162867
+    },
+    "recursos/Flujo_completo_del_ERP.pdf": {
+      "paginas": 12,
+      "sha256": "682b610c8228f9c803454679e0fbcefc1aa77909f200aaef0ccd1db0f0b65c88",
+      "bytes": 44245
+    }
+  }
+}

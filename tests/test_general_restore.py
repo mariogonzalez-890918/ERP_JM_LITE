@@ -98,6 +98,9 @@ class GeneralRestoreTests(unittest.TestCase):
   with tempfile.TemporaryDirectory() as folder:
    path=pathlib.Path(folder)/'legacy.sqlite3';path.write_bytes(files['data/sku.sqlite3'])
    with contextlib.closing(sqlite3.connect(path)) as db:
+    
+    from operaciones_base import SCHEMA
+    for name,sql in SCHEMA.items():db.execute('DROP '+('TRIGGER' if 'TRIGGER' in sql[:40] else 'TABLE')+' IF EXISTS '+name)
     rows=db.execute('SELECT * FROM inv_warehouses').fetchall();db.execute('DROP TABLE inv_warehouses');db.execute(LEGACY_SCHEMA);db.executemany('INSERT INTO inv_warehouses VALUES(?,?,?,?,?,?)',rows);db.commit()
    files['data/sku.sqlite3']=path.read_bytes()
   manifest=json.loads(files['manifest.json']);manifest['archivos']['data/sku.sqlite3']=hashlib.sha256(files['data/sku.sqlite3']).hexdigest();files['manifest.json']=json.dumps(manifest).encode()

@@ -49,7 +49,7 @@ template=template.replace('<details><summary>Consultar materiales cargados</summ
 template=template.replace('<div class="section-heading"><h3>Solicitudes emitidas</h3>',await fs.readFile('sku/workflow-panel.html','utf8')+'<div class="section-heading"><h3>Solicitudes emitidas</h3>');
 template=template.replace('<p id="rqDetalleNota"></p>','<p id="rqDetalleNota"></p>'+await fs.readFile('sku/workflow-document-panel.html','utf8'));
 template=template.replace('<option value="captura" selected>CAPTURA Y GENERACIÓN DE SKU</option>','<option value="ventas">VENTAS</option><option value="compras">COMPRAS</option><option value="alta" selected>ALTA DE PRODUCTOS</option>');
-template=template.replace('<option value="visualizador">VISUALIZADOR</option>','<option value="visualizador">VISUALIZADOR</option><option value="gerente">GERENTE</option><option value="almacenista">ALMACENISTA</option><option value="auxti">AUXTI</option><option value="requisicion">REQUISICIÓN</option><option value="ventasins">VentasIns</option><option value="expendios">TPV</option><option value="calidad">CALIDAD</option><option value="ventaspasteleria">VENDEDOR CAPTURA</option>');
+template=template.replace('<option value="visualizador">VISUALIZADOR</option>','<option value="visualizador">VISUALIZADOR</option><option value="gerente">GERENTE</option><option value="almacenista">ALMACENISTA</option><option value="auxti">AUXTI</option><option value="requisicion">REQUISICIÓN</option><option value="ventasins">VentasIns</option><option value="expendios">TPV</option><option value="calidad">CALIDAD</option><option value="produccion">PRODUCCIÓN</option><option value="ventaspasteleria">VENDEDOR CAPTURA</option>');
 template=template.replace('<div class="actions"><button>Guardar usuario</button>','<fieldset id="usuarioAccesos" hidden><legend id="usuarioAccesosTitulo"></legend><p id="usuarioAccesosNota" class="note"></p><div id="usuarioUbicaciones" class="grid"></div></fieldset><div class="actions"><button>Guardar usuario</button>');
 template=template.replace('<th>Perfil</th><th>Estado</th>','<th>Perfil</th><th>Ubicaciones autorizadas</th><th>Estado</th>');
 template=template.replace(/SUPER ADMINISTRADOR/g,'SUPERADMINISTRADOR').replace('Super administrador: acceso completo. Captura: altas, edición y generación de SKU. Visualizador: consulta y descarga. Desactivar un usuario bloquea su acceso.','Superadministrador: acceso completo y respaldos. Ventas: catálogo de ventas. Compras: catálogo de compras. Alta de productos: ambos catálogos, sin respaldos. Visualizador: consulta y descarga de maestros.');
@@ -80,14 +80,14 @@ for(const name of ['index.html','login.html','app.js','commercial.html','commerc
 
 await fs.copyFile('sku/inventory-panel.html',dir+'/public/inventory.html');await fs.writeFile(dir+'/public/inventory.js',await fs.readFile('sku/date-format.js','utf8')+'\n'+await fs.readFile('sku/inventory-ui.js','utf8')+'\n'+await fs.readFile('sku/inventory-operations-ui.js','utf8')+'\n'+await fs.readFile('sku/inventory-documents-ui.js','utf8'));
 const enterprise=await fs.readFile('sku/enterprise.css','utf8');
-for(const name of ['enterprise','quality','crm','security','finance']){
+for(const name of ['enterprise','quality','crm','security','finance','operations']){
  await fs.copyFile('sku/'+name+'-panel.html',dir+'/public/'+name+'.html');
  await fs.copyFile('sku/'+name+'-ui.js',dir+'/public/'+name+'.js');
 }
 let crmPage=await fs.readFile(dir+'/public/crm.html','utf8');crmPage=crmPage.replace('</main>',await fs.readFile('sku/crm-management-panel.html','utf8')+'</main>');await fs.writeFile(dir+'/public/crm.html',crmPage);
 await fs.appendFile(dir+'/public/crm.js','\n'+await fs.readFile('sku/crm-management-ui.js','utf8'));
 await fs.appendFile(dir+'/public/quality.js','\n'+await fs.readFile('sku/quality-management-ui.js','utf8'));
-for(const name of ['index.html','commercial.html','purchase.html','inventory.html','enterprise.html','quality.html','crm.html','security.html','finance.html']){
+for(const name of ['index.html','commercial.html','purchase.html','inventory.html','enterprise.html','quality.html','crm.html','security.html','finance.html','operations.html']){
  let html=await fs.readFile(dir+'/public/'+name,'utf8');
  if(['commercial.html','purchase.html','inventory.html'].includes(name))html=html.replace('</body>','<a class="jm-layout-access" href="/cargas">Layouts y cargas iniciales</a></body>');
  html=html.replace(/<style id="jm-enterprise">[\s\S]*?<\/style>/g,'');
@@ -103,7 +103,7 @@ for(const artwork of ['halloween-art.svg','navidad-art.svg','newyear-art.svg','a
 await fs.appendFile(dir+'/public/app.js','\n'+await fs.readFile('sku/catalog-config-ui.js','utf8'));
 await fs.appendFile(dir+'/public/app.js','\n'+await fs.readFile('sku/sku-ficha-ui.js','utf8'));
 await fs.appendFile(dir+'/public/app.js','\n'+await fs.readFile('sku/product-options-ui.js','utf8'));
-for(const name of ['index.html','login.html','commercial.html','purchase.html','inventory.html','enterprise.html','quality.html','crm.html','security.html','finance.html']){
+for(const name of ['index.html','login.html','commercial.html','purchase.html','inventory.html','enterprise.html','quality.html','crm.html','security.html','finance.html','operations.html']){
  let html=await fs.readFile(dir+'/public/'+name,'utf8');
  html=html.replace(/<script type="module" src="\/theme.js"><\/script>/g,'');
  if(name==='login.html')html=html.replace(/<style id="jm-enterprise">[\s\S]*?<\/style>/g,'').replace('</style>','</style><style id="jm-enterprise">'+enterprise+'</style>');

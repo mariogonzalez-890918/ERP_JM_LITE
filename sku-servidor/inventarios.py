@@ -8,7 +8,7 @@ from clientes_comerciales import read_table
 from ventas import norm
 
 APPROVERS={'gerente','superadmin','auxti'}
-OPERATORS=APPROVERS|{'almacenista','compras'}
+OPERATORS=APPROVERS|{'almacenista','compras','produccion','calidad'}
 HEADERS=['SKU','DESCRIPCION','UNIDAD_ENTREGA','FISICO']
 SYSTEM_CONCEPTS={'TRASPASO_CANCELACION_SALIDA':'Devolución al origen por cancelación de traspaso recibido','TRASPASO_CANCELACION_ENTRADA':'Regreso por cancelación de traspaso recibido','TRASPASO_CANCELACION':'Cancelación de tránsito y devolución al origen','DEVOLUCION_PROVEEDOR':'Devolución al proveedor','INICIAL':'Inventario inicial','AJUSTE':'Ajuste por conteo físico','RECEPCION_COMPRA':'Compra recibida','CANCELACION_RECEPCION_COMPRA':'Cancelación/devolución de compra recibida','REQUISICION_SURTIDO':'Surtido de requisición','REQUISICION_DEVOLUCION':'Reversión de surtido de requisición','TRASPASO_SALIDA':'Salida a otro almacén','TRASPASO_ENTRADA':'Recepción de otro almacén','TRASPASO_DEVOLUCION':'Devolución de traspaso','RESTABLECER':'Restablecimiento autorizado'}
 
@@ -35,6 +35,8 @@ CREATE TRIGGER IF NOT EXISTS inv_ledger_no_update BEFORE UPDATE ON inv_ledger BE
 CREATE TRIGGER IF NOT EXISTS inv_ledger_no_delete BEFORE DELETE ON inv_ledger BEGIN SELECT RAISE(ABORT,'El diario de inventario es inmutable'); END;''')
    from almacenes_config import migrate
    migrate(db)
+   from operaciones_base import initialize
+   initialize(db)
    marker='inventarios-v31'
    db.execute('CREATE TABLE IF NOT EXISTS inv_features(id TEXT PRIMARY KEY)')
    if not db.execute('SELECT 1 FROM inv_features WHERE id=?',(marker,)).fetchone():
@@ -97,6 +99,14 @@ CREATE TRIGGER IF NOT EXISTS inv_ledger_no_delete BEFORE DELETE ON inv_ledger BE
    cost=m.get('costoEntrega')
    if cost is None and m.get('precioCompra') is not None and m.get('factor'):cost=fmt(dec(m['precioCompra'])/dec(m['factor'],True))
    result[sku]={**m,'sku':sku,'unidad':m['unidadEntrega'],'costo':cost}
+  with self.store.connect() as db:
+   for sku,payload in db.execute('SELECT sku,payload FROM cm_products'):
+    product=json.loads(payload)
+    if not product.get('activo') or product.get('naturaleza','PRODUCTO')=='SERVICIO':continue
+    if sku in result:
+     if norm(result[sku]['unidad'])!=norm(product['unidad']):raise ValueError('El SKU comparte unidades incompatibles entre Compras y Ventas: '+sku)
+     continue
+    result[sku]={'sku':sku,'nombre':product['nombre'],'unidad':product['unidad'],'unidadEntrega':product['unidad'],'materialId':None,'activo':True,'costo':product.get('costoInventario'),'naturaleza':'PRODUCTO'}
   return result
  def balance(self,db,w,sku):
   row=db.execute('SELECT unit,qty,cost,payload FROM inv_balances WHERE warehouse=? AND sku=?',(w,sku)).fetchone()
@@ -104,7 +114,8 @@ CREATE TRIGGER IF NOT EXISTS inv_ledger_no_delete BEFORE DELETE ON inv_ledger BE
  def post(self,db,w,m,delta,cost,source,kind,actor,reference='',notes='',extra=None,allow_negative=False):
   m={**m,'sku':str(m['sku']).strip().upper()}
   from almacenes_config import details
-  if delta<0 and details(db,w,'')['funcion']=='CUARENTENA' and kind not in ('CALIDAD_LIBERACION','CALIDAD_RECHAZO','RESTABLECER'):raise ValueError('El almacén está en cuarentena. Registra primero una liberación de Calidad autorizada.')
+  if delta<0 and details(db,w,'')['funcion']=='CUARENTENA' and kind not in ('CALIDAD_LIBERACION','CALIDAD_RECHAZO','RESTABLECER','PRODUCCION_CANCELACION','PRODUCCION_REPROCESO','CANCELACION_COMERCIAL'):raise ValueError('El almacén está en cuarentena. Registra primero una liberación de Calidad autorizada.')
+  if delta<0 and details(db,w,'')['funcion']=='MERMA' and kind not in ('PRODUCCION_REPROCESO','PRODUCCION_CANCELACION','RESTABLECER','CANCELACION_COMERCIAL'):raise ValueError('La merma requiere reproceso autorizado; no permite salidas ordinarias.')
   if db.execute('SELECT 1 FROM inv_ledger WHERE source=?',(source,)).fetchone():raise Conflict('Este movimiento ya fue aplicado.')
   old=self.balance(db,w,m['sku']);q=Decimal(old['cantidad']) if old else Decimal(0);avg=Decimal(old['costo']) if old else Decimal(0)
   if old and norm(old['unidad'])!=norm(m['unidad']):raise Conflict('La unidad del maestro cambió. Resuelve la equivalencia antes de mover '+m['sku']+'.')
@@ -113,6 +124,8 @@ CREATE TRIGGER IF NOT EXISTS inv_ledger_no_delete BEFORE DELETE ON inv_ledger BE
    if ref not in (None,''):avg=dec(ref)
    elif c.get('precioCompra') not in (None,'') and c.get('factor') not in (None,'','0'):avg=dec(c['precioCompra'])/dec(c['factor'],True)
   after=q+delta
+  from operaciones_base import reserved
+  if delta<0 and reserved(db,w,m['sku'],(extra or {}).get('reservaDocumento',''))>0 and after<reserved(db,w,m['sku'],(extra or {}).get('reservaDocumento','')):raise ValueError('La salida utiliza existencias reservadas para otro documento: '+m['sku'])
   if delta<0 and after<0 and not allow_negative:raise ValueError('Existencia insuficiente para '+m['sku']+': disponible '+fmt(q)+' '+m['unidad']+'.')
   applied=cost if delta>0 else avg
   if applied is None:raise ValueError('Falta costo de entrega del maestro para '+m['sku']+'.')
@@ -129,6 +142,9 @@ CREATE TRIGGER IF NOT EXISTS inv_ledger_no_delete BEFORE DELETE ON inv_ledger BE
    if info['activo'] or known:catalog.update({sku:{**r,'pendienteConteo':not info['activo'],'provisional':not info['activo']} for sku,r in known.items()})
    for sku,r in known.items():
     if sku not in catalog:catalog[sku]={**r,'cantidad':None,'valor':None,'pendienteConteo':True}
+   from operaciones_base import reserved
+   for r in catalog.values():
+    held=reserved(db,w,r['sku']);r['reservado']=fmt(held);r['disponible']=fmt(max(Decimal(0),Decimal(r['cantidad'])-held)) if r['cantidad'] is not None else None
    rows=sorted(catalog.values(),key=lambda r:r['sku']);return {'almacen':info,'existencias':rows,'pendientesConteo':sum(r['pendienteConteo'] for r in rows),'valorTotal':fmt(sum((Decimal(r['valor']) for r in rows if r['valor'] is not None),Decimal(0))) if info['activo'] or known else None,'movimientos':[{'id':i,**json.loads(p)} for i,p in db.execute('SELECT id,payload FROM inv_ledger WHERE warehouse=? ORDER BY id DESC LIMIT 1000',(w,))],'solicitudes':[json.loads(p) for p, in db.execute('SELECT payload FROM inv_requests WHERE warehouse=? ORDER BY rowid DESC LIMIT 500',(w,))]}
  def public(self,value,actor):
   if actor['role'] in APPROVERS:return value
@@ -190,6 +206,7 @@ CREATE TRIGGER IF NOT EXISTS inv_ledger_no_delete BEFORE DELETE ON inv_ledger BE
     if lines:result.append({'id':id,'folio':doc['folio'],'cotizacion':doc.get('cotizacionOrigen',''),'proveedor':doc['proveedor']['nombre'],'partidas':lines})
   return {'pedidos':result}
  def availability(self,w,sku,actor):
+  from operaciones_base import reserved
   from pedidos_compra import delivery_in
   self.scope(actor,w);sku=str(sku or '').strip().upper();m=self.materials().get(sku)
   if not m:raise ValueError('SKU no disponible en el maestro.')
@@ -200,7 +217,8 @@ CREATE TRIGGER IF NOT EXISTS inv_ledger_no_delete BEFORE DELETE ON inv_ledger BE
    except ValueError:unconverted+=1
   with self.store.connect() as db:
    info=self.scope(actor,w,db);balance=self.balance(db,w,sku);issued=sum((-Decimal(json.loads(p)['cantidad']) for p, in db.execute("SELECT payload FROM inv_ledger WHERE warehouse=? AND upper(sku)=? AND json_extract(payload,'$.tipo') IN ('REQUISICION_SURTIDO','REQUISICION_DEVOLUCION') AND json_extract(payload,'$.ciclo')=?",(w,sku,info['ciclo']))),Decimal(0))
-  return {'sku':sku,'unidad':m['unidad'],'comprasRecibidas':fmt(total),'sinEquivalencia':unconverted,'materialSurtido':fmt(issued),'disponible':balance['cantidad'] if balance else None,'recepciones':receipts[:20]}
+   held=reserved(db,w,sku);physical=Decimal(balance['cantidad']) if balance else Decimal(0)
+  return {'sku':sku,'unidad':m['unidad'],'comprasRecibidas':fmt(total),'sinEquivalencia':unconverted,'materialSurtido':fmt(issued),'fisico':balance['cantidad'] if balance else None,'reservado':fmt(held),'disponible':fmt(physical-held) if balance else None,'recepciones':receipts[:20]}
  def stamp(self,db,w):
   return fingerprint([list(db.execute('SELECT cycle,active,revision FROM inv_warehouses WHERE id=?',(w,)).fetchone()),[list(r) for r in db.execute('SELECT sku,unit,qty,cost FROM inv_balances WHERE warehouse=? ORDER BY sku',(w,))]])
  def repeat(self,db,data):
@@ -265,6 +283,8 @@ CREATE TRIGGER IF NOT EXISTS inv_ledger_no_delete BEFORE DELETE ON inv_ledger BE
   if actor['role']!='superadmin':raise PermissionError('Solo Superadministrador puede restablecer inventarios.')
   with self.store.connect() as db:
    db.execute('BEGIN IMMEDIATE');w=data.get('almacen');info=self.scope(actor,w,db,True)
+   if db.execute('SELECT 1 FROM op_reservations WHERE warehouse=?',(w,)).fetchone():raise Conflict('Libera primero las reservas de pedidos y Producción de este almacén.')
+   if db.execute("SELECT 1 FROM sqlite_master WHERE name='pr_orders'").fetchone() and db.execute("SELECT 1 FROM pr_orders WHERE state NOT IN ('CERRADA','CANCELADA') AND (json_extract(payload,'$.consumo')=? OR json_extract(payload,'$.materiasPrimas')=? OR json_extract(payload,'$.terminado')=?)",(w,w,w)).fetchone():raise Conflict('Cierra o cancela primero las órdenes de Producción del almacén.')
    if db.execute("SELECT 1 FROM inv_transfers WHERE (source=? OR destination=?) AND state IN ('EN_TRANSITO','PARCIAL')",(w,w)).fetchone():raise Conflict('Confirma o devuelve primero los materiales en tránsito de este almacén.')
    stamp=self.stamp(db,w);rows=[(s,self.balance(db,w,s)) for s, in db.execute('SELECT sku FROM inv_balances WHERE warehouse=?',(w,)).fetchall()]
    review={'huellaActual':stamp,'almacen':info,'articulos':len(rows),'valor':fmt(sum((Decimal(r['cantidad'])*Decimal(r['costo']) for s,r in rows),Decimal(0)))}

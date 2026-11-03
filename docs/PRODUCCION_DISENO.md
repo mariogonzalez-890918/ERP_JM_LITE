@@ -1,112 +1,43 @@
-# Producción: flujo propuesto y criterios de implementación
+# Producción configurable
 
-Estado: el flujo de Producción sigue en diseño. La base multialmacén y la liberación de Cuarentena ya están implementadas; no equivalen a órdenes de fabricación.
+Actualizado el 3 de noviembre de 2026. Producción es opcional por empresa y módulo contratado; una empresa comercial puede vender sin fabricaciones.
 
-## Objetivo operativo
+## Preparación
 
-Capturar una receta del producto A, indicar cuántas unidades se van a fabricar,
-consultar el explosionado y faltantes, surtir materiales a Producción, registrar
-lo realmente consumido y recibir el resultado. La hoja de producción reúne
-cantidades, costos y movimientos con un folio estable y PDF.
+Superadministrador habilita Producción e Inventarios en los perfiles autorizados y sus accesos de empresa/sucursal/almacén. En Inventarios se crean los almacenes necesarios con nombre libre y función General, Producción, PT, Cuarentena, Merma o Devoluciones. No se agregan sucursales ni almacenes de ejemplo.
 
-## Almacenes por empresa y sucursal
+En Producción → Configuración se eligen almacenes de materiales, consumo, PT, Cuarentena, Merma y alternativos; métodos, autorización, parcialidades, lotes, etapas, tolerancias, redondeo, calidad, criterios de aceptación/rechazo, costos y permisos individuales. Sólo Gerencia/Superadministrador configuran, autorizan, cancelan y consultan costos. El resto de los permisos es independiente. Se conservan accesos por empresa/sucursal.
 
-Cada almacén debe tener nombre configurable y función: General/materiales,
-Producción, Producto terminado (PT) o Cuarentena. No crear nombres de empresas,
-sucursales o almacenes de muestra. Una sucursal puede tener varios almacenes.
-La función no sustituye los permisos ni la razón social del almacén.
+Métodos seleccionables: discreta, lotes, bajo pedido, inventario, ensamble, subensambles, procesos y etapas. Las etapas se definen en orden y no pueden avanzar más de lo aprobado en la etapa previa. Los métodos comparten el flujo de movimientos y la valuación existente; no son motores industriales separados.
 
-Se retiró la restricción de un almacén por empresa/sucursal. La migración conserva IDs, existencias, ciclos, movimientos y referencias. El almacén existente queda como destino histórico de las recepciones de Compras; los adicionales se agregan en Inventarios con Agregar almacén. Las requisiciones deben seleccionar un almacén cuando haya más de uno.
+## Recetas y planeación
 
-Los nombres son configurables, sin crear ubicaciones de muestra. Cuarentena bloquea salidas ordinarias y se libera por Gerencia o Superadministrador hacia General o PT de la misma empresa. Se registra responsable de Calidad, motivo y dos movimientos atómicos al mismo costo. Ver ALMACENES_MULTI.md.
+Recetas de producto terminado o subensamble, con versiones, vigencia, rendimiento base, instrucciones, componentes, unidad de consumo, factor explícito a inventario, merma prevista, alternativas compatibles y subrecetas. El rendimiento y la cantidad de la orden se expresan en la unidad de inventario del producto; las unidades de compra conservan las conversiones existentes de Compras. No se convierten piezas a kilos implícitamente.
 
-La producción de una orden pertenece a una sola empresa. El movimiento entre
-empresas se resuelve mediante el traspaso multiempresa existente, con su propia
-salida y recepción, antes de surtir la orden.
+Una orden conserva una copia de su receta y configuración técnica. Nuevas versiones no alteran documentos anteriores. El explosionado multinivel detecta ciclos y calcula requerimiento, físico, reserva, disponible, faltante y costo estimado. Distribuye disponibilidad compartida para no contar dos veces la misma materia prima entre niveles. La planeación no modifica el Kárdex.
 
-## Recetas y explosionado
+El layout Excel/CSV de recetas se revisa antes de aplicar. Se validan catálogos, equivalencias y dependencias; aplicar exige la huella del archivo y catálogo revisados. No crea productos implícitos. Los subensambles faltantes se fabrican mediante sus propias órdenes y se reciben antes del consumo de la orden superior.
 
-- Producto de salida: SKU de venta inventariable, unidad controlada y cantidad
-  base de rendimiento mayor que cero. No fabricar servicios.
-- Componentes: SKU inventariables de compra o semielaborados, cantidad y unidad
-  de inventario. No convertir kilogramos a piezas sin una equivalencia explícita.
-- Recetas versionadas y activas/inactivas. Guardar la versión completa dentro de
-  la orden; una edición posterior no cambia órdenes emitidas.
-- Requerimiento = cantidad solicitada / rendimiento base × cantidad de receta.
-  Mostrar requerido, disponible, reservado y faltante por componente y almacén.
-- Permitir receta de varios niveles con detección de ciclos. Los semielaborados
-  disponibles se consumen como tales; fabricar sus faltantes mediante órdenes
-  vinculadas, evitando descontar sus componentes dos veces.
-- Mostrar costo estimado con promedio actual y fecha de cálculo. Si falta costo
-  o conversión, señalarlo y bloquear la confirmación correspondiente.
-- Layout de recetas con producto, versión, rendimiento, componente, cantidad y
-  unidad; revisión de errores antes de aplicar, sin alta implícita de catálogos.
+## Flujo real
 
-## Orden y hoja de producción
+1. Emitir orden manual para inventario o desde el faltante de un pedido. Se puede elegir cantidad capturada, todo el pendiente no programado o faltante recalculado. Se restan órdenes pendientes del mismo pedido/producto para evitar duplicar producción.
+2. Autorizar asigna folio por empresa/sucursal y reserva materiales disponibles. No realiza salida física.
+3. Surtir materiales mueve existencias de materiales a Producción con igual costo. Admitir parcialidades y devolver sobrantes sin consumir.
+4. Registrar consumo real descuenta del almacén de Producción. Sustituciones requieren alternativas de la receta; consumos y rendimientos fuera de tolerancia requieren autorización y motivo. La merma indicada forma parte de la cantidad consumida, no se descuenta dos veces.
+5. Registrar fabricación, rechazos, lote, fechas, caducidad y etapas. Las inspecciones opcionales de MP/proceso/PT impiden saltar sus controles. Un nuevo surtido, consumo o fabricación invalida el dictamen correspondiente.
+6. Recibir cantidad fabricada pendiente en General/PT o Cuarentena. Sin aprobación de PT, la recepción sólo puede ir a Cuarentena; su liberación se realiza con la operación existente de Inventarios. La recepción puede ser parcial o por lote.
+7. Cerrar exige resolver producción fabricada y costos pendientes; un cierre parcial requiere motivo. Cancelar genera inversos auditados en orden contrario y se bloquea si el stock ya no permite devolver o cambió el ciclo de almacén.
 
-Flujo: Borrador → Planeada → Surtida → En proceso → Terminada.
-La liberación de Calidad es un movimiento posterior cuando hay cuarentena.
+## Costos y documentos
 
-1. Seleccionar empresa, sucursal, producto, receta, cantidad, fechas y responsable.
-2. Revisar explosionado, costo estimado y faltantes. Planear reserva materiales;
-   la reserva reduce disponibilidad, no el físico ni el valor del Kárdex.
-3. Surtir del almacén de materiales al de Producción. Registrar salida y entrada
-   vinculadas; la mercancía conserva su valor. Puede haber surtidos parciales.
-4. Capturar consumo real, devoluciones de material sin consumir, merma y unidades
-   obtenidas. No confundir material surtido con material consumido.
-5. Cerrar con consumos y entradas definitivas, liberando reservas pendientes.
-   El producto va a PT o Cuarentena según su configuración y control de Calidad.
+Se reutiliza el costo promedio de Inventarios. Costos reales de consumos, mano de obra, indirectos y adicionales se asignan a las recepciones; pérdidas extraordinarias autorizadas se separan. La merma física se conserva a costo cero para evitar duplicar el valor absorbido por PT. Se registra el ajuste de redondeo a seis decimales. Sólo Gerencia puede cerrar anticipadamente un lote de costos.
 
-La hoja muestra plan y real por separado, lote, materiales surtidos/consumidos/
-devueltos, merma con motivo, avance, resultado, usuarios, fechas y referencias
-del Kárdex. Cada registro actualiza la vista; el PDF reproduce el estado guardado
-y su fecha. Un PDF anterior no se sobrescribe como si fuera el nuevo estado.
+La hoja PDF incluye empresa/logo, folio, revisión, receta, plan/real, consumos, costos según permiso, usuarios, fechas y movimientos. Cada descarga representa el estado consultado, sin modificar PDFs previamente descargados.
 
-Folios por empresa, sucursal y serie: prefijo, consecutivo siguiente, longitud
-y cambio opcional por ejercicio. Sólo Gerencia y Superadministrador configuran;
-asignación transaccional al emitir, nunca reutilizar un folio cancelado ni
-permitir retroceder a uno utilizado. El borrador usa ID interno sin gastar folio.
+Reportes con filtros y columnas seleccionables: órdenes/costos/variación, movimientos, consumos, mermas/pérdidas, lotes y calidad, en Excel/CSV/PDF. Existencias de MP y PT, disponibilidad y Kárdex se consultan en Inventarios para conservar una sola fuente de saldos.
 
-## Costeo y movimientos
+La copia general incluye recetas, órdenes, eventos, reservas, configuraciones y Kárdex. La restauración admite estructuras anteriores conocidas mediante migración en la copia temporal; rechaza otros cambios de esquema.
 
-- Surtido: traspaso Materiales → Producción, sin generar gasto ni nuevo costo.
-- Consumo: salida de Producción a la orden, valuada al costo promedio vigente.
-- Devolución sin consumo: Producción → Materiales, conservando el valor transferido.
-- Producto terminado: entrada a PT/Cuarentena con costo real de la orden.
-- Merma normal: queda identificada y su costo se absorbe en el rendimiento útil.
-  Merma extraordinaria: pérdida separada con autorización y motivo. No descontar
-  el mismo material como consumo y nuevamente como merma.
-- Costo distribuible = material consumido + cargos de fabricación autorizados
-  − recuperaciones valorizadas − pérdida extraordinaria. No incluir impuestos
-  recuperables en el costo de forma automática.
-- Costo unitario = costo distribuible / unidades útiles obtenidas. Sin unidades
-  útiles, resolver como pérdida autorizada; nunca dividir entre cero.
-- PT y cuarentena participan en el mismo reparto de costo por unidad de la orden.
-  Cuarentena no está disponible para venta, surtido ni TPV.
-- Liberación: traspaso Cuarentena → PT por Calidad autorizado, sin nuevo costeo.
-  Rechazo: devolución controlada a reproceso o merma; conservar lote y referencia.
-- La devolución posterior de PT se registra con referencia a la orden/movimiento;
-  no borrar ni modificar el diario. Si ya se vendió o trasladó, impedir una
-  reversión que deje existencias negativas.
+## Límites del piloto
 
-El registro de fabricación es único por evento. Confirmar dos veces no duplica
-movimientos. Materiales, costo y entrada de producto se aplican en una única
-transacción SQLite. Ante un error se revierte todo el evento. Respetar el ciclo
-de inventario: no revertir una orden histórica dentro de un ciclo diferente.
-
-## Permisos y comprobaciones antes de habilitar
-
-Producción será módulo contratable y con permisos explícitos por perfil.
-Almacén surte/recibe; Producción captura avances; Calidad libera cuarentena;
-Gerencia/Superadministrador autorizan ajustes, cancelaciones y pérdidas. Los
-costos siguen los permisos de Inventarios y nunca se filtran a ventas restringidas.
-
-Probar con bases aisladas: migración de almacenes sin perder datos; recetas
-cíclicas; unidades incompatibles; faltantes y reservas simultáneas; surtido
-parcial; doble confirmación; fallo entre salida y entrada; rendimiento distinto
-al previsto; merma total; devoluciones; cuarentena bloqueada para venta;
-liberación parcial; aislamiento entre empresas; folios concurrentes; PDF con
-datos reales de la hoja; restauración general que conserve toda la trazabilidad.
-
-Las pruebas no deben crear producción ni cambiar existencias de la instalación
-real. El módulo se habilita después de completar estas verificaciones.
+El cierre de Producción no timbra facturas ni registra operaciones bancarias. No hay rutas industriales independientes, programación de máquinas, nómina ni MRP automático. El catálogo de métodos configura el mismo flujo de fabricación. PAC se mantiene pendiente por instrucción del propietario. Falta certificar la instalación en toda la matriz Windows y realizar pruebas de carga de la operación real.

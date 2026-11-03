@@ -5,8 +5,9 @@ if(response.ok){
  const session=await response.json(),user=session.user,modules=new Set(user.modulos),owner=user.internalAdmin===true;
  const brand=document.querySelector('#jmSidebar .jm-brand strong');if(brand)brand.textContent='ERP JM';const subtitle=document.querySelector('#jmSidebar .jm-brand span');if(subtitle)subtitle.textContent='Versión '+session.app.edicion.nombre;
  const areas=[
-  ['Comercial',[['Vendedores y CRM','/crm','ventasins'],['Pedidos institucionales','/comercial?canal=ventasins','ventasins'],['TPV','/comercial?canal=expendios','expendios'],['SKU de venta','/#ventas','ventas'],...(['superadmin','gerente'].includes(user.role)?[['Saldos y cobros de clientes','/finanzas?libro=CXC','ventasins']]:[])]],
+  ['Comercial',[['Ciclo comercial','/procesos','ventasins'],['Vendedores y CRM','/crm','ventasins'],['Pedidos institucionales','/comercial?canal=ventasins','ventasins'],['TPV','/comercial?canal=expendios','expendios'],['SKU de venta','/#ventas','ventas'],...(['superadmin','gerente'].includes(user.role)?[['Saldos y cobros de clientes','/finanzas?libro=CXC','ventasins']]:[])]],
   ['Compras',[['Pedidos y proveedores','/compras','pedidoscompra'],['SKU de compra','/#compras','compras'],['Requisición de materiales','/#requisiciones','requisiciones'],...(['superadmin','gerente','compras'].includes(user.role)?[['CXP y pagos a proveedores','/finanzas?libro=CXP','pedidoscompra']]:[])]],
+  ['Producción',[['Órdenes, recetas y explosionado','/produccion','produccion']]],
   ['Almacenes',[['Existencias y Kárdex','/inventarios','inventarios']]],
   ['Calidad',[['Gestión de calidad','/calidad','calidad']]],
   ['Administración',[['Empresa y catálogos','/empresa','empresa'],['Layouts y cargas','/cargas','cargar_maestro'],...(user.role==='superadmin'?[['Usuarios','/#usuarios'],['Accesos por perfil','/#perfiles'],['Respaldos','/#respaldos']]:[]),['Mi seguridad','/seguridad']]]

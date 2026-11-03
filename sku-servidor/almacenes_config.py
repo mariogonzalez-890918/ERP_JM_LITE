@@ -54,7 +54,10 @@ class WarehouseConfiguration:
  def release(self,data,actor):
   from inventarios import dec,fmt
   self.inv.scope(actor)
-  if actor['role'] not in ('gerente','superadmin'):raise PermissionError('Solo Gerencia y Superadministrador autorizan liberaciones de cuarentena.')
+  if actor['role'] not in ('gerente','superadmin','calidad'):raise PermissionError('Solo Calidad, Gerencia y Superadministrador autorizan liberaciones de cuarentena.')
+  if actor['role']=='calidad':
+   from permissions import require_module
+   require_module(actor,'calidad')
   if any(not isinstance(data.get(k),str) or not 1<=len(data[k])<=250 for k in ('origen','destino')):raise ValueError('Selecciona los almacenes de origen y destino.')
   reason=text(data.get('motivo',''),2000);responsible=text(data.get('responsable',''),160);quantity=dec(data.get('cantidad'),True);sku=str(data.get('sku','')).strip().upper()
   if not reason or not responsible:raise ValueError('Indica responsable de Calidad y motivo de la liberación.')

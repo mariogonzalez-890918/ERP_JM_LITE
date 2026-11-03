@@ -71,6 +71,7 @@ def save_product(cm,data,actor):
   kind=data.get('naturaleza',previous.get('naturaleza','PRODUCTO'))
   if kind not in ('PRODUCTO','SERVICIO'):raise ValueError('Selecciona producto o servicio.')
   value['naturaleza']=kind
+  value['costoInventario']=optional_price(data.get('costoInventario',previous.get('costoInventario')))
   db.execute('INSERT INTO cm_products VALUES(?,?,?) ON CONFLICT(sku) DO UPDATE SET payload=excluded.payload,revision=excluded.revision',(sku,dumps(value),(old[0] if old else 0)+1))
   for listing,price in prices.items():
    enabled=listing in ('PUBLICO','MINIMO','REMATE') or listing in ('RUTA','DESPACHO') and 'expendios' in selected

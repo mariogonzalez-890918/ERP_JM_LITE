@@ -1,48 +1,34 @@
-# Ampliaciones solicitadas: conservar los módulos actuales
+# Ciclo comercial integrado
 
-Orden de trabajo: entregar primero el piloto instalable corregido; ampliar el
-ciclo documental y Producción reutilizando catálogos, usuarios, permisos,
-empresas, almacenes, valuación y Kárdex. Integración PAC al final, sólo estudio
-de opciones durante esta entrega.
+Actualizado el 3 de noviembre de 2026. Se amplían los documentos comerciales existentes; no se sustituyen CRM, catálogos ni CXC.
 
-Ya existen presupuestos/pedidos comerciales, precios, partidas, descuentos,
-impuestos, condiciones, impresión, cobros TPV, CRM con carteras, CXP/CXC,
-compras con recepción y devolución, y diario inmutable de inventarios.
-No presentar esos procesos como remisión física o factura fiscal.
+## Operación
 
-Avance implementado (2 de noviembre de 2026):
+Desde Ventas institucionales → Remisiones, facturas y cobros, o Menú de aplicaciones → Ciclo comercial.
 
-- Conversión de presupuesto a pedido en documentos separados, con folios propios, relación en ambos sentidos y conservación de importes y partidas. La repetición o concurrencia no duplica pedidos. El presupuesto original queda aceptado y conserva sus versiones.
-- Varios almacenes nombrados por empresa/sucursal, sin cambiar destinos históricos de Compras. Bloqueo de salidas de Cuarentena y liberación autorizada transaccional hacia General o PT.
-- El perfil Ventas puede operar sus pedidos y reportes; clientes y asignaciones siguen bajo Gerencia/Superadministrador y las carteras permanecen privadas.
+1. Capturar presupuesto con cliente, empresa, partidas, descuentos, impuestos, condiciones, vigencia, moneda y tipo de cambio. Gerencia puede aprobar o rechazar. La configuración por empresa determina si la aprobación es obligatoria.
+2. Convertir a pedido conserva el presupuesto y genera folio independiente. La confirmación y reserva lógica no modifican el físico ni el Kárdex. Disponibilidad muestra faltantes por almacén; el usuario decide si solicita compra o fabrica.
+3. Generar una o varias remisiones con cantidades efectivamente entregadas, almacén, persona que preparó y autorizador. Cada confirmación genera una sola salida física. Las reservas sobrantes se reducen conforme al pendiente.
+4. Facturar cantidades pendientes de una o varias remisiones compatibles. La opción de facturar directamente pedidos requiere configuración por empresa. Se valida empresa, cliente, moneda, tipo de cambio y cantidad previamente facturada. La factura crea una cuenta en CXC y nunca vuelve a descontar una remisión.
+5. Registrar cobros parciales o totales, fecha, referencia y forma; consultar saldo, vencimiento, reembolsos y recibo PDF. Son registros internos, sin conexión bancaria. Cancelar un cobro conserva su registro y revisa dependencias.
+6. La nota de crédito ajusta el saldo sin entrada de inventario. La devolución física se captura desde la remisión y produce una entrada real; los productos sin aprobación se reciben en Cuarentena, Devoluciones o Merma.
 
-Pendientes del ciclo ampliado:
+Series y folios por empresa, con control de consecutivos y reutilización prohibida. Los documentos e importes anteriores conservan sus versiones. Cancelar documentos físicos genera movimientos inversos auditados y exige resolver los documentos dependientes.
 
-- Ampliar vigencia, autorización y rechazo de cotizaciones; conservar la conversión separada y las referencias ya implementadas.
-- Reservas lógicas, disponibilidad y faltantes por almacén sin modificar físico.
-- Remisiones parciales que descuenten únicamente lo entregado. Evitar duplicar
-  salida al volver a enviar o al facturar; consultar pendientes por partida.
-- Facturas comerciales desde pedido/remisión, consolidación compatible,
-  cantidades pendientes de facturar, datos fiscales y estado pendiente de timbrado.
-- Aplicación de cobros parciales a facturas, recibos y vencimientos reutilizando
-  CXC y sus controles existentes.
-- Notas de crédito separadas de las devoluciones físicas. Solamente la devolución
-  autorizada recibida genera entrada de inventario; nunca borrar el diario.
-- Producción opcional por empresa: métodos de fabricación configurables, recetas
-  versionadas/multinivel y alternativas, detección de ciclos y explosionado.
-- Planeación y reservas sin movimientos; consumo real, fabricación y recepción
-  parcial con trazabilidad, lotes, merma, reproceso y controles de Calidad opcionales.
-- Costos estimados/reales con materiales, indirectos y mano de obra, usando el
-  promedio del Kárdex actual. Unidades compatibles y equivalencias explícitas.
-- Series, folios, tolerancias, permisos y almacenes configurados por empresa;
-  PDF de la hoja y reportes filtrables de documentos, saldos, producción y costos.
+## Permisos y reportes
 
-Ver [diseño de Producción](PRODUCCION_DISENO.md) y [estudio PAC](PAC_OPCIONES.md).
-El diseño se amplía con consumos y recepciones parciales: la primera propuesta
-de cierre único no cubre el alcance posterior del propietario.
+Cada vendedor consulta únicamente su cartera. Gerencia y Superadministrador autorizan remisiones, facturas, créditos, devoluciones y movimientos financieros. La asignación de clientes y las comisiones conservan los controles existentes. El perfil de captura restringida no puede cambiar precios autorizados ni su moneda MXN.
 
-Escenarios de aceptación pendientes: venta sin producción; venta con fabricación
-del faltante; fabricación para stock; producción parcial; nota de crédito con
-devolución física diferenciada; empresa comercializadora sin recetas ni órdenes
-de producción. Todas las confirmaciones de stock deberán ser transaccionales,
-sin movimientos duplicados y con inversos auditados en cancelaciones.
+Reportes Excel, CSV y PDF por empresa, sucursal, almacén, periodo, producto, cliente y estados aplicables; columnas seleccionables. Incluyen documentos, pendientes de surtido/facturación, saldos y cobros/reembolsos. Los créditos no se cuentan como efectivo cobrado para comisiones. Los reportes por partida repiten los datos del documento; el saldo corresponde a la factura, no debe sumarse entre sus partidas.
+
+## Fiscal y comunicación
+
+Catálogos de régimen, uso, forma, método y moneda extraídos del XLS oficial SAT de 29 de octubre de 2026, con descripciones, vigencias y compatibilidad entre régimen/uso/tipo de persona. La validación definitiva del contribuyente y CFDI corresponde al PAC.
+
+Por instrucción del propietario, PAC queda al final: sin timbrado, UUID, XML certificado, CFDI de egreso ni complemento de pago. Facturas y notas se identifican como documentos comerciales pendientes de timbrado. La opción XML informa esta condición; no fabrica certificados.
+
+Preparar correo descarga un EML con destinatario, asunto y PDF adjunto para abrir en el cliente de correo. No envía mensajes ni incorpora credenciales SMTP.
+
+## Validación
+
+Pruebas aisladas de venta sin Producción, fabricación bajo pedido, remisiones y recepciones parciales, consolidación, cobros, reembolsos, créditos, devolución física, doble envío, permisos, reversión transaccional y restauración general. Las pruebas nunca operan la base de la instalación del cliente.

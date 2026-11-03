@@ -25,7 +25,7 @@ from sucursales import save_branch
 APP_DIR=pathlib.Path(sys.executable).resolve().parent if getattr(sys,'frozen',False) else ROOT
 ALPHABET='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 MAX_BODY=25*1024*1024
-ROLES={'superadmin':'SUPERADMINISTRADOR','auxti':'AUXTI','visualizador':'VISUALIZADOR','ventas':'VENTAS','compras':'COMPRAS','alta':'ALTA DE PRODUCTOS','gerente':'GERENTE','almacenista':'ALMACENISTA','requisicion':'REQUISICIÓN','ventaspasteleria':'VENTASPASTELERIA','ventasins':'VENDEDOR','expendios':'TPV','calidad':'CALIDAD'}
+ROLES={'produccion':'PRODUCCIÓN','superadmin':'SUPERADMINISTRADOR','auxti':'AUXTI','visualizador':'VISUALIZADOR','ventas':'VENTAS','compras':'COMPRAS','alta':'ALTA DE PRODUCTOS','gerente':'GERENTE','almacenista':'ALMACENISTA','requisicion':'REQUISICIÓN','ventaspasteleria':'VENTASPASTELERIA','ventasins':'VENDEDOR','expendios':'TPV','calidad':'CALIDAD'}
 def read_scope(actor,scope):
  require_module(actor,scope)
 def write_scope(actor,scope):
@@ -294,9 +294,15 @@ def create_handler(store):
  backups=BackupStore(store,validate,reports)
  admin_approvals=AdminApprovals(store,sales,images,backups)
  enterprise=Enterprise(store);quality=QualityLite(store);loads=CatalogLoads(store,purchases,sales,requisitions,reports,commercial.cm,quality);crm=CRMManagement(commercial.cm);finance=Finance(store,commercial.cm,procurement.po)
+ from produccion import Production
+ production=Production(store,inventory.inv,commercial.cm)
+ from ciclo_comercial import CommercialFlow
+ commercial_flow=CommercialFlow(store,commercial.cm,inventory.inv,finance,production)
  from restauracion_general import GeneralRestore
  def refresh_after_restore():
   with store.connect() as db:branches=dict(db.execute('SELECT name,series FROM app_branches ORDER BY name'))
+  with store.connect() as db:
+   for role,modules in DEFAULTS.items():db.execute('INSERT OR IGNORE INTO role_modules VALUES(?,?,1)',(role,json.dumps(modules)))
   BRANCHES.clear();BRANCHES.update(branches);store.taxonomy.reload();procurement.po.cache=None
  restore_general=GeneralRestore(store,enterprise,refresh_after_restore,commercial.sync)
  class Handler(http.server.BaseHTTPRequestHandler):
@@ -390,6 +396,27 @@ def create_handler(store):
     try:
      require_module(actor,'inventarios');name,kind=('inventory.html','text/html') if path=='/inventarios' else ('inventory.js','text/javascript');return self.reply(200,(ROOT/'public'/name).read_bytes(),kind+'; charset=utf-8')
     except PermissionError as e:return self.reply(403,{'error':str(e)})
+   if path in ('/produccion','/procesos','/operations.js'):
+    try:
+     if path=='/operations.js':
+      if not any(m in actor.get('modulos',[]) for m in ('produccion','ventasins')):raise PermissionError('No tienes este módulo habilitado.')
+     else:require_module(actor,'produccion' if path=='/produccion' else 'ventasins')
+     name,kind=('operations.js','text/javascript') if path=='/operations.js' else ('operations.html','text/html');return self.reply(200,(ROOT/'public'/name).read_bytes(),kind+'; charset=utf-8')
+    except PermissionError as e:return self.reply(403,{'error':str(e)})
+   if path.startswith('/api/ciclo/'):
+    try:
+     from ciclo_routes import get as flow_get
+     q={k:v[0] for k,v in parse_qs(urlsplit(self.path).query).items()};result=flow_get(commercial_flow,path.removeprefix('/api/ciclo/'),q,actor);return self.reply(200,*result) if isinstance(result,tuple) else self.reply(200,result)
+    except PermissionError as e:return self.reply(403,{'error':str(e)})
+    except RequisitionConflict as e:return self.reply(409,{'error':str(e)})
+    except (ValueError,KeyError,TypeError,ArithmeticError) as e:return self.reply(400,{'error':str(e)})
+   if path.startswith('/api/produccion/'):
+    try:
+     from produccion_routes import get as production_get
+     q={k:v[0] for k,v in parse_qs(urlsplit(self.path).query).items()};result=production_get(production,path.removeprefix('/api/produccion/'),q,actor);return self.reply(200,*result) if isinstance(result,tuple) else self.reply(200,result)
+    except PermissionError as e:return self.reply(403,{'error':str(e)})
+    except RequisitionConflict as e:return self.reply(409,{'error':str(e)})
+    except (ValueError,KeyError,TypeError,ArithmeticError) as e:return self.reply(400,{'error':str(e)})
    if path.startswith('/api/inventarios/'):
     try:
      result=inventory.get(path,parse_qs(urlsplit(self.path).query),actor);return self.reply(200,*result) if isinstance(result,tuple) else self.reply(200,result)
@@ -568,6 +595,12 @@ def create_handler(store):
      return self.reply(200,actions[self.path](self.read_body(),actor))
     if self.path=='/api/logout' and self.command=='POST':
      store.logout(self.token);return self.reply(200,{'ok':True},cookie='jm_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0')
+    if self.path.startswith('/api/ciclo/') and self.command=='POST':
+     from ciclo_routes import mutate as flow_mutate
+     return self.reply(200,flow_mutate(commercial_flow,self.path.removeprefix('/api/ciclo/'),self.read_body(),actor))
+    if self.path.startswith('/api/produccion/') and self.command=='POST':
+     from produccion_routes import mutate as production_mutate
+     return self.reply(200,production_mutate(production,self.path.removeprefix('/api/produccion/'),self.read_body(),actor))
     if self.path.startswith('/api/inventarios/') and self.command=='POST':
      result=inventory.mutate(self.path,self.read_body(),actor);return self.reply(200,*result) if isinstance(result,tuple) else self.reply(200,result)
     if self.path.startswith('/api/pedidoscompra/') and self.command=='POST':
@@ -633,6 +666,8 @@ def create_handler(store):
    except Exception:self.reply(500,{'error':'No se pudo guardar. Revisa el registro del servidor.'})
   def log_message(self,fmt,*args):print(self.address_string(),fmt%args,flush=True)
  Handler.commercial=commercial
+ Handler.commercial_flow=commercial_flow
+ Handler.production=production
  Handler.inventory=inventory
  Handler.procurement=procurement
  Handler.restore_general=restore_general

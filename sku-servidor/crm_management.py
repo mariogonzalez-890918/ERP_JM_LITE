@@ -60,10 +60,13 @@ class CRMManagement(CRM):
    for id,customer,reference,issued,currency,total,payload in db.execute("SELECT id,party,reference,issued,currency,amount,payload FROM fn_accounts WHERE company=? AND book='CXC' AND cancelled=0",(company,)):
     value=json.loads(payload);rule=value.get('comision',{});email=rule.get('vendedor','')
     if not email or seller and email!=seller or value.get('tipoDocumento','FACTURA')!='FACTURA':continue
-    rate=Decimal(rule.get('porcentaje','0'));basis=rule.get('base','FACTURADO');invoice_base=Decimal(total if rule.get('impuestos','NETO')=='BRUTO' else value.get('baseComision',total));paid=Decimal(0)
-    for kind,payment,date in db.execute('SELECT kind,amount,date FROM fn_payments WHERE account=? AND cancelled=0',(id,)):
-     if since<=date<=until:paid+=Decimal(payment)*(1 if kind=='ABONO' else -1)
-    base=invoice_base if basis=='FACTURADO' and since<=issued<=until else paid*invoice_base/Decimal(total) if basis=='COBRADO' else Decimal(0)
+    rate=Decimal(rule.get('porcentaje','0'));basis=rule.get('base','FACTURADO');invoice_base=Decimal(total if rule.get('impuestos','NETO')=='BRUTO' else value.get('baseComision',total));paid=Decimal(0);credited=Decimal(0)
+    for kind,payment,date,reference in db.execute('SELECT kind,amount,date,reference FROM fn_payments WHERE account=? AND cancelled=0',(id,)):
+     if since<=date<=until and kind in ('ABONO','REEMBOLSO'):paid+=Decimal(payment)*(1 if kind=='ABONO' else -1)
+     if since<=date<=until and kind=='CREDITO':
+      note=db.execute("SELECT payload FROM cm_documents WHERE company=? AND number=? AND json_extract(payload,'$.cuenta')=? AND json_extract(payload,'$.tipo')='NOTA_CREDITO' AND state<>'CANCELADO'",(company,reference,id)).fetchone();credited+=Decimal(json.loads(note[0])['base']) if note and rule.get('impuestos','NETO')!='BRUTO' else Decimal(payment)
+
+    base=((invoice_base if since<=issued<=until else Decimal(0))-credited) if basis=='FACTURADO' else paid*invoice_base/Decimal(total) if basis=='COBRADO' else Decimal(0)
     if not base:continue
     client=db.execute('SELECT payload FROM cm_customers WHERE id=?',(customer,)).fetchone();person=db.execute('SELECT name FROM users WHERE email=?',(email,)).fetchone();commission=Decimal(money(base*rate/100));totals[currency]=totals.get(currency,Decimal(0))+commission
     rows.append({'cuenta':id,'referencia':reference,'cliente':json.loads(client[0]).get('nombre',customer) if client else customer,'vendedor':email,'nombreVendedor':person[0] if person else email,'fechaFactura':issued,'moneda':currency,'regla':basis,'impuestos':('Con impuestos' if rule.get('impuestos','NETO')=='BRUTO' else 'Antes de impuestos'),'porcentaje':money(rate),'facturado':money(total),'cobradoPeriodo':money(paid),'baseComision':money(base),'comision':money(commission)})

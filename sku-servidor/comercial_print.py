@@ -17,8 +17,10 @@ def document_html(doc,channel,formato=""):
   header=logo+'<h1>'+esc(company['nombre'])+'</h1><p>'+esc(company.get('rfc',''))+'<br>'+esc(company.get('domicilio',''))+'</p>'
   subtitle=esc(doc['tipo'])+' '+esc(doc['folio'])+'<p>Cliente: '+esc(customer.get('nombre') or doc.get('clienteOpcional') or 'Público general')+'<br>'+esc(customer.get('domicilio',''))+'</p>'
  if channel=='ventasins':subtitle+='<p>Fecha pedido: '+esc(display_date(doc.get('fechaPedido',doc['fecha'][:10])))+'<br>Fecha entrega: '+esc(display_date(doc.get('fechaEntrega','')))+'</p>'
+ if channel=='ventasins':subtitle+='<p>Moneda: '+esc(doc.get('moneda') or 'MXN')+' · Tipo de cambio: '+esc(doc.get('tipoCambio') or '1')+('</p><p>Vigencia: '+esc(display_date(doc['vigencia'])) if doc.get('tipo')=='PRESUPUESTO' and doc.get('vigencia') else '')+'</p>'
  if channel=='ventasins' and doc.get('presupuestoOrigen'):subtitle+='<p>Presupuesto de origen: '+esc(doc['presupuestoOrigen'])+'</p>'
  if channel=='ventasins' and doc.get('pedidoFolio'):subtitle+='<p>Pedido relacionado: '+esc(doc['pedidoFolio'])+'</p>'
+ if doc.get('tipo') in ('FACTURA','NOTA_CREDITO'):subtitle+='<p><strong>DOCUMENTO COMERCIAL · PENDIENTE DE TIMBRADO</strong><br>No es un CFDI certificado. XML y UUID pendientes del PAC.</p>'
  rows=''.join('<tr><td>'+esc(r['nombre'])+'<small>'+esc(r['sku'])+'</small>'+('<small>'+esc(r.get('nota',''))+'</small>' if r.get('nota') else '')+'</td><td>'+esc(r['cantidad'])+' '+esc(r['unidad'])+'</td><td>$'+esc(r['precio'])+'</td><td>$'+esc(r['total'])+'</td></tr>' for r in doc['partidas'])
  print_options=('<a class="download" href="/api/comercial/imprimir?id='+esc(doc['id'])+'&amp;canal=ventasins&amp;formato=a4">Hoja A4</a> · <a class="download" href="/api/comercial/imprimir?id='+esc(doc['id'])+'&amp;canal=ventasins&amp;formato=ticket">BIXOLON 80 mm</a> ' if channel=='ventasins' else '<span class="download">BIXOLON 80 mm</span> ')
  tax_detail=''.join('<br>'+esc(name)+(' incluido $' if total>0 else ' $')+esc(format(total,'.2f')) for name in dict.fromkeys(r.get('tipoImpuesto') or tax_name(r.get('iva')) for r in doc['partidas']) for total in [sum((Decimal(r['impuesto']) for r in doc['partidas'] if (r.get('tipoImpuesto') or tax_name(r.get('iva')))==name),Decimal(0))] if total)
@@ -44,6 +46,7 @@ def report_rows(result,columns=None,selection=None):
  return rows
 
 def report_csv(rows):
+ rows=[[str(v) if v is not None else '' for v in row] for row in rows]
  out=io.StringIO();writer=csv.writer(out,delimiter=';')
  # Evita interpretar nombres/códigos como fórmulas al abrir CSV en Excel.
  writer.writerows([[("'"+v) if v.startswith(('=','+','-','@')) else v for v in row] for row in rows]);return ('\ufeff'+out.getvalue()).encode('utf8')
@@ -57,7 +60,7 @@ def report_xlsx(rows,sheet_name="Reporte"):
   return value
  def cell(v,i,j):
   ref=column(j)+str(i)
-  numeric=i>1 and rows[0][j-1] in ('Emitidas','Borradores','Canceladas','Cantidad','Precio con IVA','Precio con impuesto','Tasa %','IVA %','Subtotal','IVA incluido','IEPS incluido','Impuesto incluido','Total','PRECIO PUBLICO','PRECIO RUTA','PRECIO DESPACHO','FISICO','ENTRADA','SALIDA','SALDO_ANTERIOR','SALDO','COSTO_UNITARIO','IMPORTE','COSTO_UNITARIO_SIN_IMPUESTO','VALOR','INICIAL','INICIAL_PERIODO','ENTRADAS','SALIDAS','EXISTENCIA_AL_CORTE','EXISTENCIA_ACTUAL') and re.fullmatch(r'-?\d+(?:\.\d+)?',v) and len(v.replace('.','').lstrip('0'))<=15
+  numeric=i>1 and rows[0][j-1] in ('Planeado','Fabricado','Rechazado','Recibido','Pendiente','Estimado','Real','Costo unitario','Redondeo','Variación','Importe','Impuestos','Saldo factura','Emitidas','Borradores','Canceladas','Cantidad','Precio con IVA','Precio con impuesto','Tasa %','IVA %','Subtotal','IVA incluido','IEPS incluido','Impuesto incluido','Total','PRECIO PUBLICO','PRECIO RUTA','PRECIO DESPACHO','FISICO','ENTRADA','SALIDA','SALDO_ANTERIOR','SALDO','COSTO_UNITARIO','IMPORTE','COSTO_UNITARIO_SIN_IMPUESTO','VALOR','INICIAL','INICIAL_PERIODO','ENTRADAS','SALIDAS','EXISTENCIA_AL_CORTE','EXISTENCIA_ACTUAL') and re.fullmatch(r'-?\d+(?:\.\d+)?',v) and len(v.replace('.','').lstrip('0'))<=15
   return '<c r="'+ref+'"><v>'+v+'</v></c>' if numeric else '<c r="'+ref+'" t="inlineStr"><is><t xml:space="preserve">'+escape(v)+'</t></is></c>'
  sheet='<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'+''.join('<row r="'+str(i)+'">'+''.join(cell(v,i,j) for j,v in enumerate(row,1))+'</row>' for i,row in enumerate(rows,1))+'</sheetData></worksheet>'
  out=io.BytesIO()

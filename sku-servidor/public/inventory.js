@@ -74,8 +74,8 @@ async function releaseQuarantine(){
  const person=field(body,'Responsable de Calidad'),reason=field(body,'Motivo y criterio de aceptación','textarea');person.required=reason.required=true;const operationKey=key();
  submit=async()=>{await api('cuarentena/liberar',{origen:source.id,destino:destination.value,sku:sku.value,cantidad:qty.value,responsable:person.value,motivo:reason.value,clave:operationKey});$('modal').close();await refresh();message('Liberación registrada con salida y entrada en Kárdex.');};
 }
-const releaseQuarantineButton=button(warehouseControls,'Liberar Cuarentena',releaseQuarantine);
-function showQuarantineAction(){releaseQuarantineButton.hidden=!['superadmin','gerente'].includes(actor?.role)||selected()?.funcion!=='CUARENTENA';}
+const releaseQuarantineButton=button($('refresh').parentElement,'Liberar Cuarentena',releaseQuarantine);
+function showQuarantineAction(){releaseQuarantineButton.hidden=!['superadmin','gerente','calidad'].includes(actor?.role)||selected()?.funcion!=='CUARENTENA';}
 const renderBeforeWarehouseControls=render;render=function(){renderBeforeWarehouseControls();showQuarantineAction();};showQuarantineAction();
 
 // Conceptos, autorizaciones y dos recepciones operativas diferentes.

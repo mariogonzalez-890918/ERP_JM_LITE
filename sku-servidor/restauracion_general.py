@@ -19,12 +19,14 @@ class GeneralRestore:
   return db.execute("SELECT type,name,tbl_name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name").fetchall()
  def upgrade_warehouse_schema(self,path,incoming,current):
   from almacenes_config import LEGACY_SCHEMA,migrate
-  # Única diferencia admitida: la definición exacta anterior del almacén.
-  # Se adapta sólo la copia temporal, después de verificar el hash del ZIP.
-  old=self.schema(incoming);new=self.schema(current)
-  if [r for r in old if r[1]!='inv_warehouses']!=[r for r in new if r[1]!='inv_warehouses']:return
-  if next((r[3] for r in old if r[1]=='inv_warehouses'),None)!=LEGACY_SCHEMA:return
-  with contextlib.closing(sqlite3.connect(path)) as staged:migrate(staged)
+  from operaciones_base import SCHEMA,initialize
+  old={r[1]:r for r in self.schema(incoming)};new={r[1]:r for r in self.schema(current)}
+  # Sólo faltantes de la ampliación conocida y el almacén antiguo exacto.
+  if set(old)-set(new) or (set(new)-set(old))-set(SCHEMA):return
+  for name,row in old.items():
+   if row!=new[name] and not (name=='inv_warehouses' and row[3]==LEGACY_SCHEMA):return
+  with contextlib.closing(sqlite3.connect(path)) as staged:
+   migrate(staged);initialize(staged,True);staged.commit()
  def summary(self,db):
   tables={'Empresas':'cm_companies','Sucursales':'app_branches','SKU de compra':'req_materials','Pedidos de compra':'po_orders','Documentos comerciales':'cm_documents','Movimientos de almacén':'inv_ledger','Registros de Calidad':'q_items','Archivos de Calidad':'q_files','Usuarios':'users'}
   return {label:db.execute('SELECT count(*) FROM '+table).fetchone()[0] for label,table in tables.items()}

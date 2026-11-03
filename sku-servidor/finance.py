@@ -50,8 +50,8 @@ class Finance:
   if not row:raise ValueError('Cuenta no disponible.')
   v=dict(zip(('id','empresa','libro','tercero','referencia','fecha','vencimiento','moneda','importe','cancelada','revision','datos'),row));self.scope(actor,v['empresa'],v['libro']);v['datos']=json.loads(v['datos'])
   v['pagos']=[dict(zip(('id','tipo','importe','fecha','referencia','metodo','cancelado','actor','creado'),r)) for r in db.execute('SELECT id,kind,amount,date,reference,method,cancelled,actor,created FROM fn_payments WHERE account=? ORDER BY rowid',(id,))]
-  applied=sum((Decimal(p['importe'])*(1 if p['tipo']=='ABONO' else -1) for p in v['pagos'] if not p['cancelado']),Decimal(0));balance=Decimal(v['importe'])-applied
-  v.update({'aplicado':money(applied),'saldo':money(balance),'estado':'CANCELADA' if v['cancelada'] else 'PAGADA' if balance==0 else 'VENCIDA' if v['vencimiento']<now()[:10] else 'PARCIAL' if applied else 'PENDIENTE'})
+  applied=sum((Decimal(p['importe'])*(1 if p['tipo'] in ('ABONO','CREDITO') else -1) for p in v['pagos'] if not p['cancelado']),Decimal(0));balance=Decimal(v['importe'])-applied
+  v.update({'aplicado':money(applied),'saldo':money(balance),'estado':'CANCELADA' if v['cancelada'] else 'A_FAVOR' if balance<0 else 'PAGADA' if balance==0 else 'VENCIDA' if v['vencimiento']<now()[:10] else 'PARCIAL' if applied else 'PENDIENTE'})
   return v
  def list(self,query,actor):
   company=int(query.get('empresa','0'));book=query.get('libro','CXP');self.scope(actor,company,book);rows=[];totals={}
@@ -62,7 +62,7 @@ class Finance:
     rows.append(v)
     if not v['cancelada']:totals[v['moneda']]=totals.get(v['moneda'],Decimal(0))+Decimal(v['saldo'])
   return {'cuentas':rows,'saldosPorMoneda':{c:money(v) for c,v in totals.items()}}
- def account(self,data,actor):
+ def account(self,data,actor,invoice=None):
   company=data.get('empresa');book=data.get('libro');self.scope(actor,company,book,True);party=data.get('tercero');reference=text(data.get('referencia',''),160);issued=iso_date(data.get('fecha'));due=iso_date(data.get('vencimiento'));currency=data.get('moneda','MXN');value=cash(data.get('importe','0'));source=data.get('compra','')
   if party not in [p['id'] for p in self.parties(actor,company,book)]:raise ValueError('Selecciona proveedor/cliente de esta empresa.')
   if not reference or not issued or not due or due<issued or currency not in ('MXN','USD','EUR') or value<=0:raise ValueError('Indica referencia, fechas válidas, moneda e importe positivo.')
@@ -76,8 +76,9 @@ class Finance:
     if currency!='MXN' or value!=Decimal(purchase['total']):raise ValueError('El importe de la compra ligada debe coincidir en MXN.')
     if db.execute("SELECT 1 FROM fn_accounts WHERE json_extract(payload,'$.compra')=?",(source,)).fetchone():raise ValueError('La compra ya tiene una cuenta registrada.')
    kind=data.get('tipoDocumento','FACTURA');raw_base=data.get('baseComision');base=cash(value if raw_base in (None,'') else raw_base)
-   if kind not in ('FACTURA','CARGO','SALDO_INICIAL') or base>value:raise ValueError('Indica tipo de documento y base de comisión no mayor al importe.')
+   if kind not in ('FACTURA','CARGO','SALDO_INICIAL') or base>value and not (invoice and base==Decimal(invoice['base']) and value==Decimal(invoice['total'])):raise ValueError('Indica tipo de documento y base de comisión no mayor al importe.')
    id=secrets.token_hex(16);payload={'concepto':concept[0],'compra':source,'tipoDocumento':kind,'baseComision':money(base),'observaciones':text(data.get('observaciones',''),4000),'actor':actor['email'],'creado':now()}
+   if invoice:payload['facturaId']=invoice['id']
    if book=='CXC':
     rule=db.execute('SELECT a.seller,c.percentage,c.basis,c.tax_basis FROM cm_customer_assignments a LEFT JOIN crm_commissions c ON c.company=? AND c.customer=a.customer AND c.seller=a.seller WHERE a.customer=?',(company,party)).fetchone()
     payload['comision']={'vendedor':rule[0] if rule else '', 'porcentaje':rule[1] or '0.00' if rule else '0.00','base':rule[2] or 'FACTURADO' if rule else 'FACTURADO','impuestos':rule[3] or 'NETO' if rule else 'NETO'}
@@ -97,10 +98,11 @@ class Finance:
    if v['cancelada']:raise ValueError('La cuenta está cancelada.')
    if data.get('revision')!=v['revision']:raise Conflict('La cuenta cambió; actualiza el saldo.')
    if date<v['fecha']:raise ValueError('El pago no puede ser anterior al cargo.')
-   if value>Decimal(v['saldo'] if kind=='ABONO' else v['aplicado']):raise ValueError('El pago excede el saldo o el reembolso excede lo aplicado.')
-   id=secrets.token_hex(16);db.execute('INSERT INTO fn_payments VALUES(?,?,?,?,?,?,?,0,?,?,?,?)',(id,v['id'],kind,money(value),date,reference,method,key,digest,actor['email'],now()));db.execute('UPDATE fn_accounts SET revision=revision+1 WHERE id=?',(v['id'],));self.cm.audit(db,actor,v['empresa'],'pago_registrado',{'id':id,'cuenta':v['id'],'tipo':kind,'importe':money(value)})
+   refundable=sum((Decimal(p['importe'])*(1 if p['tipo']=='ABONO' else -1) for p in v['pagos'] if not p['cancelado'] and p['tipo'] in ('ABONO','REEMBOLSO')),Decimal(0))
+   if value>(Decimal(v['saldo']) if kind=='ABONO' else refundable):raise ValueError('El pago excede el saldo o el reembolso excede lo aplicado.')
+   id=secrets.token_hex(16);db.execute('INSERT INTO fn_payments VALUES(?,?,?,?,?,?,?,0,?,?,?,?)',(id,v['id'],kind,money(value),date,reference,method,key,digest,actor['email'],now()));db.execute('UPDATE fn_accounts SET revision=revision+1 WHERE id=?',(v['id'],));db.execute('INSERT INTO app_meta VALUES(?,?)',('payment_folio:'+id,dumps(self.cm.next_number(db,v['empresa'],'RECIBO_'+v['libro']))));self.cm.audit(db,actor,v['empresa'],'pago_registrado',{'id':id,'cuenta':v['id'],'tipo':kind,'importe':money(value)})
   return {'ok':True,'id':id}
- def cancel(self,data,actor):
+ def cancel(self,data,actor,linked=False):
   if actor['role'] not in ('superadmin','gerente'):raise PermissionError('Solo Gerencia/Superadministrador cancelan cargos y pagos.')
   reason=text(data.get('motivo',''),500)
   if not reason:raise ValueError('Indica el motivo de cancelación.')
@@ -108,12 +110,15 @@ class Finance:
    db.execute('BEGIN IMMEDIATE');v=self.row(db,data.get('cuenta'),actor)
    if data.get('revision')!=v['revision']:raise Conflict('La cuenta cambió.')
    if v['cancelada']:raise ValueError('La cuenta ya está cancelada.')
+   if v['datos'].get('facturaId') and not data.get('pago') and not linked:raise ValueError('Cancela la factura desde el ciclo comercial para conservar su relación con CXC.')
    payment=data.get('pago')
    if payment:
     selected=next((p for p in v['pagos'] if p['id']==payment and not p['cancelado']),None)
     if not selected:raise ValueError('Pago no disponible.')
+    if selected['tipo']=='CREDITO':raise ValueError('Cancela la nota de crédito desde el ciclo comercial.')
+    credits=sum((Decimal(p['importe']) for p in v['pagos'] if p['tipo']=='CREDITO' and not p['cancelado']),Decimal(0))
     net=Decimal(v['aplicado'])-Decimal(selected['importe'])*(1 if selected['tipo']=='ABONO' else -1)
-    if not 0<=net<=Decimal(v['importe']):raise ValueError('Cancela antes los reembolsos o pagos posteriores que dependen de este movimiento.')
+    if not credits<=net<=Decimal(v['importe'])+credits:raise ValueError('Cancela antes los reembolsos o pagos posteriores que dependen de este movimiento.')
     db.execute('UPDATE fn_payments SET cancelled=1 WHERE id=?',(payment,))
    elif any(not p['cancelado'] for p in v['pagos']):raise ValueError('Cancela primero los movimientos de esta cuenta.')
    else:db.execute('UPDATE fn_accounts SET cancelled=1 WHERE id=?',(v['id'],))

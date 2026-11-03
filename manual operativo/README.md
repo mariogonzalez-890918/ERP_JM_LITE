@@ -2,6 +2,8 @@
 
 Documentación gráfica del piloto **ca0ce1e**, edición documental 1.0 del **3 de noviembre de 2026**. Las pantallas y los ejemplos utilizan datos de demostración; no contienen contraseñas, tokens de activación ni datos de clientes reales.
 
+La [actualización de TPV](Actualizacion_TPV.md) describe el comportamiento posterior al piloto. El [diseño de Logística](Diseno_Logistica.md) documenta el flujo previsto para pedidos, notas y remisiones.
+
 ## Descargar los manuales
 
 | Documento | Extensión | Contenido |

@@ -30,7 +30,9 @@ class CatalogTests(fixtures.ModuleBackupTests):
   self.assertNotEqual(self.cm('clientes')['clientes'][0].get('correo'),'no-permitido@example.test')
 
  def test_ticket_only_session_no_fund_or_cash_receipts(self):
+  from pos_fixture import seed_pos_stock
   p=self.cm('productos',{'empresa':self.company,'nombre':'TICKET DEMO','tipo':'PT','categoria':'PD','subcategoria':'05','unidad':'PIEZA','iva':'8','canales':['expendios'],'precios':{'DESPACHO':'10.8'}});box=self.cm('cajas',{'empresa':self.company,'sucursal':'CENTRAL','codigo':'T1','nombre':'Emisor','lista':'DESPACHO'},channel='expendios')['id'];session=self.cm('sesiones/abrir',{'empresa':self.company,'caja':box,'modo':'TICKETS'},channel='expendios');self.assertEqual(session['fondo'],'0.00')
+  seed_pos_stock(self,self.company,p['sku'])
   doc=self.cm('cobrar',{'empresa':self.company,'sesion':session['id'],'clave':uuid.uuid4().hex,'partidas':[{'sku':p['sku'],'cantidad':'1'}],'soloTicket':True},channel='expendios')['documento'];self.assertEqual(doc['estado'],'EMITIDA');self.assertEqual(doc['pago']['metodo'],'TICKET');s=self.cm('sesiones',channel='expendios')['sesiones'][0];self.assertEqual(s['cobrado'],'0.00');self.assertEqual(s['efectivoEsperado'],'0.00');ticket=self.call('/api/comercial/imprimir?canal=expendios&id='+doc['id'])[1];self.assertNotIn(b'Recibido $',ticket);self.assertIn(b'Descargar Excel',ticket);status,raw,_=self.call('/api/comercial/documento/excel?canal=expendios&id='+doc['id']);self.assertEqual(status,200);self.assertTrue(raw.startswith(b'PK')); self.cm('sesiones/cerrar',{'empresa':self.company,'sesion':s['id'],'revision':s['revision']},channel='expendios')
 
  def test_layouts_and_initial_master_are_available_and_idempotent(self):

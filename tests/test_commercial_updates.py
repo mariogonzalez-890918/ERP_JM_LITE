@@ -8,6 +8,8 @@ class CommercialUpdates(catalogs.CatalogTests):
   return self.cm('productos',{'empresa':self.company,'nombre':name,'tipo':'PT','categoria':'PD','subcategoria':'05','unidad':'PIEZA','iva':rate,'canales':['ventasins','expendios'],'precios':{'PUBLICO':price,'DESPACHO':price}})['sku']
  def test_box_filter_snapshot_saved_report_and_exports(self):
   sku=self.product();docs=[];boxes=[]
+  from pos_fixture import seed_pos_stock
+  seed_pos_stock(self,self.company,sku)
   for n in (1,2):
    box=self.cm('cajas',{'empresa':self.company,'sucursal':'CENTRAL','codigo':'B'+str(n),'nombre':'Emisor '+str(n),'lista':'DESPACHO'},channel='expendios')['id'];boxes.append(box);session=self.cm('sesiones/abrir',{'empresa':self.company,'caja':box,'modo':'TICKETS'},channel='expendios');docs.append(self.cm('cobrar',{'empresa':self.company,'sesion':session['id'],'clave':uuid.uuid4().hex,'partidas':[{'sku':sku,'cantidad':str(n)}],'soloTicket':True},channel='expendios')['documento'])
   self.cm('cajas',{'empresa':self.company,'id':boxes[0],'revision':1,'sucursal':'CENTRAL','codigo':'B1','nombre':'Nombre cambiado','lista':'DESPACHO'},channel='expendios')

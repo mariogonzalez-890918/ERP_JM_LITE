@@ -1,6 +1,6 @@
 from comercial import tax_name
 from fechas import display_date
-"""Documentos comerciales. El ticket usa una lista explícita sin datos fiscales."""
+"""Documentos comerciales y notas de operación con el público en general."""
 import csv,html,io,zipfile,re
 from decimal import Decimal
 
@@ -12,6 +12,9 @@ def document_html(doc,channel,formato=""):
  if channel=='expendios':
   header=(logo if settings.get('mostrarLogo',True) else '')+('<h2>'+esc(doc['sucursal'])+'</h2>' if settings.get('mostrarSucursal',True) else '')
   subtitle='Ticket '+esc(doc['folio'])+'<br>Folio interno '+esc(doc['folioInterno'])
+  if doc.get('datosNotaPublico'):
+   fiscal=doc['datosNotaPublico'];header+='<p>'+esc(fiscal['nombre'])+'<br>RFC '+esc(fiscal['rfc'])+' · CP '+esc(fiscal['codigoPostal'])+'</p>'
+   subtitle+='<br>Nota de operación con el público en general'
  else:
   company=doc['emisor'];customer=doc.get('cliente') or {}
   header=logo+'<h1>'+esc(company['nombre'])+'</h1><p>'+esc(company.get('rfc',''))+'<br>'+esc(company.get('domicilio',''))+'</p>'

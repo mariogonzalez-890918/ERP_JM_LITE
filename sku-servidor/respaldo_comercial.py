@@ -43,7 +43,12 @@ def validate(db,data):
    check(line['sku'] in products,'Documento con producto inexistente.');calculated=tax_line(line['cantidad'],line['precio'],line['iva'],line.get('descuento','0'))
    check(all(calculated[k]==line[k] for k in ('base','impuesto','total')),'Importes incompatibles en documento.')
   check(all(money(sum(Decimal(p[k]) for p in v['partidas']))==v[k] for k in ('base','impuesto','total')),'Total comercial incorrecto.')
-  if r['channel']=='expendios':check(r['session'] in sessions and sessions[r['session']]['company']==r['company'] and sessions[r['session']]['box']==r['box'],'Venta asociada a otra caja/empresa.')
+  if r['channel']=='expendios' and v.get('tipo')!='FACTURA_GLOBAL':check(r['session'] in sessions and sessions[r['session']]['company']==r['company'] and sessions[r['session']]['box']==r['box'],'Venta asociada a otra caja/empresa.')
+  if v.get('tipo')=='FACTURA_GLOBAL':
+   check(r['channel']=='expendios' and v.get('notas') and len(v['notas'])==len(set(v['notas'])),'Global sin notas o con notas repetidas.')
+   for id in v['notas']:
+    check(id in docs and docs[id]['company']==r['company'] and docs[id]['channel']=='expendios','Global con notas inexistentes o de otra razón social.')
+    note=json.loads(docs[id]['payload']);check(note.get('tipo')=='VENTA' and note.get('sucursal')==v['sucursal'],'Global con nota de otra sucursal.')
  for r in dictionaries(data,'cm_cash_moves'):check(r['session'] in sessions and sessions[r['session']]['company']==r['company'],'Movimiento sin sesión de caja.')
  for r in dictionaries(data,'cm_cancellations'):check(r['document'] in docs and docs[r['document']]['company']==r['company'],'Cancelación sin venta.')
  for r in dictionaries(data,'cm_versions'):check(r['document'] in docs,'Versión sin documento.')

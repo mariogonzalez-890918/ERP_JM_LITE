@@ -21,6 +21,8 @@ class SATOptionsTests(unittest.TestCase):
   self.assertEqual(c.call(path,{'tipo':'unidad','nombre':'Unidad no SAT','claveSat':'INVALIDA'})[0],400)
   import uuid
   box=c.value('/api/comercial/cajas',{'canal':'expendios','empresa':c.company,'sucursal':'CENTRAL','codigo':'REMATE','nombre':'Caja de prueba','lista':'REMATE'})['id'];session=c.value('/api/comercial/sesiones/abrir',{'canal':'expendios','empresa':c.company,'caja':box,'modo':'TICKETS'})
+  from pos_fixture import seed_pos_stock
+  seed_pos_stock(c,c.company,data['sku'])
   doc=c.value('/api/comercial/cobrar',{'canal':'expendios','empresa':c.company,'sesion':session['id'],'clave':uuid.uuid4().hex,'partidas':[{'sku':data['sku'],'cantidad':'1'}]})['documento'];self.assertEqual(doc['total'],'70.00')
 
 if __name__=='__main__':unittest.main()

@@ -286,6 +286,8 @@ def create_handler(store):
  reports=ReportStore(store,requisitions)
  procurement=PurchaseAPI(store,commercial.cm,requisitions,reports)
  inventory=InventoryAPI(store,procurement.po)
+ from tpv_operaciones import POSOperations
+ commercial.cm.pos=POSOperations(commercial.cm,inventory.inv)
  procurement.po.inventory=inventory.inv
  workflow=WorkflowStore(store,requisitions,reports)
  workflow.inventory=inventory.inv

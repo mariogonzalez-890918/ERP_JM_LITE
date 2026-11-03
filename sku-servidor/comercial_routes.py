@@ -14,6 +14,14 @@ class CommercialAPI:
  def get(self,path,query,actor):
   cm=self.cm;channel=query.get('canal',['ventasins'])[0];cm.module(actor,channel);company=int(query.get('empresa',['0'])[0]);action=path.removeprefix('/api/comercial/')
   if actor['role']=='ventaspasteleria' and action not in ('meta','productos','clientes','documentos','documento','imprimir','documento/excel','pedidos/cancelaciones'):raise PermissionError('VENTASPASTELERIA solo captura y consulta sus pedidos y presupuestos.')
+  if action.startswith('tpv/'):
+   if channel!='expendios':raise ValueError('Selecciona TPV.')
+   branch=query.get('sucursal',[''])[0];id=query.get('id',[''])[0]
+   if action=='tpv/configuracion':return cm.pos.metadata(company,branch,actor)
+   if action=='tpv/globales':return cm.pos.globals(company,branch,actor)
+   if action=='tpv/global/pdf':return cm.pos.pdf(id,actor),'application/pdf'
+   if action=='tpv/global/json':return json.dumps(cm.pos.document(id,actor),ensure_ascii=False).encode('utf-8'),'application/json'
+   raise ValueError('Opción TPV no encontrada.')
   if action=='pedidos/cancelaciones':return cm.institutional_cancel_requests(company,actor)
   if action=='meta':return cm.metadata(actor,channel)
   if action=='fuente':return self.sync.config(actor)
@@ -72,6 +80,11 @@ class CommercialAPI:
  def mutate(self,path,data,actor):
   cm=self.cm;channel=data.get('canal','ventasins');cm.module(actor,channel);action=path.removeprefix('/api/comercial/')
   if actor['role']=='ventaspasteleria' and action not in ('pedidos','presupuestos/convertir','pedidos/cancelacion/solicitar'):raise PermissionError('VENTASPASTELERIA solo puede agregar nuevos pedidos y presupuestos.')
+  if action.startswith('tpv/'):
+   if channel!='expendios':raise ValueError('Selecciona TPV.')
+   handlers={'tpv/configuracion':cm.pos.save_config,'tpv/pago':cm.pos.paid,'tpv/global/revisar':cm.pos.preview,'tpv/global/crear':cm.pos.create,'tpv/global/cancelar':cm.pos.cancel_global}
+   if action not in handlers:raise ValueError('Opción TPV no encontrada.')
+   return handlers[action](data,actor)
   if action=='presupuestos/convertir':return cm.convert_quote(data,actor)
   if action=='pedidos/cancelacion/solicitar':return cm.request_institutional_cancel(data,actor)
   if action=='pedidos/cancelacion/resolver':return cm.decide_institutional_cancel(data,actor)

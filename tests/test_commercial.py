@@ -25,6 +25,8 @@ class CommercialTests(fixtures.ModuleBackupTests):
  def order(self,actor=None,**fields):
   return self.cm('pedidos',{'empresa':self.company,'sucursal':'CENTRAL','clave':uuid.uuid4().hex,'partidas':[{'sku':SKU,'cantidad':'2'}],**fields},actor)['documento']
  def sale(self,actor=None):
+  from pos_fixture import seed_pos_stock
+  seed_pos_stock(self,self.company,SKU)
   box=self.cm('cajas',{'empresa':self.company,'sucursal':'CENTRAL','codigo':'CAJA1','nombre':'Caja demo','lista':'DESPACHO'},channel='expendios')['id'];session=self.cm('sesiones/abrir',{'empresa':self.company,'caja':box,'fondo':'100'},channel='expendios')
   data={'empresa':self.company,'sesion':session['id'],'clave':uuid.uuid4().hex,'partidas':[{'sku':SKU,'cantidad':'1','precio':'0.01'}],'metodo':'EFECTIVO','recibido':'120'}
   return self.cm('cobrar',data,channel='expendios')['documento'],data,box

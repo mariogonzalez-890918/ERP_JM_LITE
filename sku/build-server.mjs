@@ -73,7 +73,7 @@ await fs.writeFile(dir+'/public/app.js',await fs.readFile('sku/date-format.js','
 
 
 for(const [source,target] of [['commercial-panel.html','commercial.html'],['commercial.css','commercial.css']])await fs.copyFile('sku/'+source,dir+'/public/'+target);
-await fs.writeFile(dir+'/public/commercial.js',await fs.readFile('sku/date-format.js','utf8')+'\n'+await fs.readFile('sku/commercial-key-ui.js','utf8')+'\n'+await fs.readFile('sku/commercial-ui.js','utf8')+'\n'+await fs.readFile('sku/commercial-forms-ui.js','utf8'));
+await fs.writeFile(dir+'/public/commercial.js',await fs.readFile('sku/date-format.js','utf8')+'\n'+await fs.readFile('sku/commercial-key-ui.js','utf8')+'\n'+await fs.readFile('sku/commercial-ui.js','utf8')+'\n'+await fs.readFile('sku/commercial-forms-ui.js','utf8')+'\n'+await fs.readFile('sku/tpv-ui.js','utf8'));
 
 await fs.copyFile('sku/purchase-panel.html',dir+'/public/purchase.html');await fs.copyFile('sku/purchase.css',dir+'/public/purchase.css');await fs.writeFile(dir+'/public/purchase.js',await fs.readFile('sku/date-format.js','utf8')+'\n'+await fs.readFile('sku/purchase-ui.js','utf8'));
 for(const name of ['index.html','login.html','app.js','commercial.html','commercial.js']){let value=await fs.readFile(dir+'/public/'+name,'utf8');value=value.replaceAll('ERP JM Lite','ERP JM Lite').replaceAll('ERP JM Lite','ERP JM Lite');await fs.writeFile(dir+'/public/'+name,value);}
